@@ -1,0 +1,7 @@
+discord.py==2.3.2              # Discord bot framework
+python-dotenv==1.0.1           # Environment variable management
+schedule==1.2.1                # Task scheduling for daily challenges
+aiohttp==3.9.5                 # Asynchronous HTTP requests (useful for webhooks or API calls)
+psutil==5.9.8                  # System and process utilities (for monitoring bot health)
+pyyaml==6.0.1                  # YAML support for config files
+openai==0.28.1                 # Openai API

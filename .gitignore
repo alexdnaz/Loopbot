@@ -1,0 +1,26 @@
+# macOS system files
+.DS_Store
+
+# Python cache and environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+env/
+venv/
+ENV/
+
+# IDE/editor folders
+.vscode/
+.idea/
+
+# Node.js dependencies (if any)
+node_modules/
+
+# Logs
+*.log
+
+# Temporary files
+*.swp
+*.tmp

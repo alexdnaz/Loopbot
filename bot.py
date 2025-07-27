@@ -28,10 +28,48 @@ intents.members = True
 # Bot initialization
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Channel IDs (replace these with your actual channel IDs)
-CHALLENGE_CHANNEL_ID = 1393808509463691294  # #current-challenge
-SUBMISSIONS_CHANNEL_ID = 1393808617354035321 # #submissions
-LEADERBOARD_CHANNEL_ID = 1393810922396585984 # #leaderboard
+# Channel and category IDs (update with your server's IDs)
+# Central ID table:
+# rules: 1396655144804024380
+# moderator-only: 1396655144804024383
+# voice: 1394026685975887993
+# Start Here category: 1393758933146931280
+# general: 1393758933146931282
+# welcome: 1393807671525773322
+# how-it-works: 1393807869299789954
+# Daily Loop category: 1393808136133148692
+# current-challenge: 1393808509463691294
+# submissions: 1393808617354035321
+# voting-hall: 1393808682407428127
+# Creative Zone category: 1393809063665467402
+# visual-art: 1393809187531919360
+# beat-loops: 1393809294079819917
+# short-fiction: 1393809404473774151
+# poetry: 1393809488909439118
+# photo-snaps: 1393809600821592114
+# experimental: 1393809801267515484
+# Feedback & Growth category: 1393810216163741716
+# critique-corner: 1393810379032760471
+# resources-and-tips: 1393810535644139590
+# ai-tools: 1393810714052792432
+# Rankings + Events category: 1393810822941114428
+# leaderboard: 1393810922396585984
+# past-winners: 1393810993426989099
+# season-announcements: 1393811080442024067
+# Community category: 1393811267734736976
+# general-chat: 1393811389579268206
+# introductions: 1393811501013536889
+# memes-and-vibes: 1393811645922545745
+# music-share: 1393811741715988540
+
+RULES_CHANNEL_ID = 1396655144804024380
+MODERATOR_ONLY_CHANNEL_ID = 1396655144804024383
+VOICE_CATEGORY_ID = 1394026685975887993
+CHALLENGE_CHANNEL_ID = 1393808509463691294  # current-challenge
+SUBMISSIONS_CHANNEL_ID = 1393808617354035321 # submissions
+LEADERBOARD_CHANNEL_ID = 1393810922396585984 # leaderboard
+WELCOME_CHANNEL_ID = 1393807671525773322     # welcome
+HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954# how-it-works
 
 # SQLite DB setup
 conn = sqlite3.connect('rankings.db')
@@ -193,9 +231,7 @@ async def postprompt_error(ctx, error):
 @bot.event
 async def on_member_join(member):
     """Send a welcome message to newcomers, linking key channels."""
-    # Replace with your actual welcome channel ID
-    WELCOME_CHANNEL_ID = 123456789012345678  # <=== update this to your #welcome channel ID
-    # Challenge channel (current challenge)
+    # Challenge channel (current challenge) and welcome channel
     challenge_chan = bot.get_channel(CHALLENGE_CHANNEL_ID)
     welcome_chan = bot.get_channel(WELCOME_CHANNEL_ID)
     if welcome_chan:

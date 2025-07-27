@@ -4,7 +4,12 @@
 cd "$(dirname "$0")"
 source bin/activate
 
-echo "🔁 Starting Discord bot loop..."
+echo "🔁 Starting Discord bot loop (caffeinated)..."
+
+# Prevent system sleep while the bot is running
+caffeinate -dimsu &
+CAFFEINATE_PID=$!
+trap "echo '🛑 Stopping caffeinate'; kill $CAFFEINATE_PID" EXIT
 
 while true; do
     echo "🚀 Launching bot.py..."

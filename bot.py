@@ -53,7 +53,7 @@ async def generate_ai_prompt():
                 {"role": "system", "content": "You are a creative challenge bot that generates short, unique prompts for music, art, or storytelling."},
                 {"role": "user", "content": "Give me a short, vivid creative challenge prompt for a Discord community."}
             ],
-            max_tokens=50,
+                max_tokens=100,
             temperature=0.85
         )
         data = await response

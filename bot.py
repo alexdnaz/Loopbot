@@ -127,6 +127,14 @@ async def postprompt(ctx):
     prompt = await get_prompt()
     await ctx.send(f"🎯 **Today's Creative Challenge:**\n{prompt}")
 
+@postprompt.error
+async def postprompt_error(ctx, error):
+    # Handle missing-permissions error cleanly
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You need Administrator permissions to use this command.")
+    else:
+        raise error
+
 # Reaction-based voting
 @bot.event
 async def on_raw_reaction_add(payload):

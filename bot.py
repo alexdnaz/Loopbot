@@ -188,6 +188,24 @@ async def postprompt_error(ctx, error):
     else:
         raise error
 
+## Welcome new members
+
+@bot.event
+async def on_member_join(member):
+    """Send a welcome message to newcomers, linking key channels."""
+    # Replace with your actual welcome channel ID
+    WELCOME_CHANNEL_ID = 123456789012345678  # <=== update this to your #welcome channel ID
+    # Challenge channel (current challenge)
+    challenge_chan = bot.get_channel(CHALLENGE_CHANNEL_ID)
+    welcome_chan = bot.get_channel(WELCOME_CHANNEL_ID)
+    if welcome_chan:
+        text = (
+            "🎉 Welcome newcomers! Please introduce yourself here so we can get to know you.\n"
+            f"Also, check out the current challenge in {challenge_chan.mention} "
+            "and have fun making something new!"
+        )
+        await welcome_chan.send(text)
+
 # Reaction-based voting
 @bot.event
 async def on_raw_reaction_add(payload):

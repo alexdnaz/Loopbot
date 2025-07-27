@@ -12,6 +12,8 @@ import openai
 load_dotenv()
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 openai.api_key = os.getenv('OPENAI_API_KEY')
+# Enable or disable the built-in daily scheduling (set RUN_SCHEDULE=false to rely on external cron)
+_RUN_SCHEDULE = os.getenv('RUN_SCHEDULE', 'true').lower() not in ('false', '0', 'no')
 
 # Intents
 intents = discord.Intents.default()
@@ -70,11 +72,14 @@ async def get_prompt():
 @bot.event
 async def on_ready():
     print(f"🤑 Logged in as: {bot.user}")
-    # Ensure the daily challenge loop is running; ignore if already started
-    try:
-        post_daily_challenge.start()
-    except RuntimeError:
-        pass
+    # Start the daily challenge loop if scheduling is enabled (skip when relying on cron)
+    if _RUN_SCHEDULE:
+        try:
+            post_daily_challenge.start()
+        except RuntimeError:
+            pass
+    else:
+        print("🕒 Automatic scheduling disabled (RUN_SCHEDULE=false); skipping daily loop startup.")
 
 # Daily challenge poster
 @tasks.loop(hours=24)

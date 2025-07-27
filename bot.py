@@ -70,9 +70,11 @@ async def get_prompt():
 @bot.event
 async def on_ready():
     print(f"🤑 Logged in as: {bot.user}")
-    # Only start the daily challenge loop once (avoid RuntimeError on reconnect)
-    if not post_daily_challenge.is_running():
+    # Ensure the daily challenge loop is running; ignore if already started
+    try:
         post_daily_challenge.start()
+    except RuntimeError:
+        pass
 
 # Daily challenge poster
 @tasks.loop(hours=24)

@@ -6,9 +6,14 @@ source bin/activate
 
 echo "🔁 Starting Discord bot loop (caffeinated)..."
 
+# Prevent system sleep while the bot is running
+caffeinate -dimsu &
+CAFFEINATE_PID=$!
+trap "echo '🛑 Stopping caffeinate'; kill $CAFFEINATE_PID" EXIT
+
 while true; do
-    echo "🚀 Launching bot.py (caffeinated)..."
-    caffeinate -dimsu python bot.py
+    echo "🚀 Launching bot.py..."
+    python bot.py
 
     echo "💥 Bot crashed or exited. Restarting in 5 seconds..."
     sleep 5

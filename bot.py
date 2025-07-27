@@ -97,8 +97,17 @@ async def list_commands(ctx):
 
 @bot.command(name='how')
 async def how(ctx):
-    """Alias for !commands."""
-    await ctx.send("📜 Commands: `!ping`, `!submit <link>`, `!rank`, `!leaderboard`, `!postprompt`")
+    """Explain how to participate in the daily creative challenge."""
+    how_text = (
+        "👋 **How to use LoopBot:**\n"
+        "1. Each morning, check the daily challenge in the designated channel or with `!postprompt`.\n"
+        "2. Create your work and submit it with `!submit <link>`.\n"
+        "3. Earn 1 point per submission and bonus points for 👍 reactions.\n"
+        "4. View your score with `!rank` and the top creators with `!leaderboard`.\n"
+        "5. Administrators can manually post a prompt using `!postprompt`.\n"
+        "6. Use `!ping` to check if I'm alive!"
+    )
+    await ctx.send(how_text)
 
 @bot.command()
 async def submit(ctx, link: str):

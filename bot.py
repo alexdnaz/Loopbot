@@ -6,12 +6,17 @@ import itertools
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from datetime import datetime
-import openai
 
+import openai
+import sys
+
+# Load environment variables
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 openai.api_key = os.getenv('OPENAI_API_KEY')
+# Determine if we're running in single-run mode (cron) vs. normal loop
+_RUN_MODE = sys.argv[1] if len(sys.argv) > 1 else None
 # Enable or disable the built-in daily scheduling (set RUN_SCHEDULE=false to rely on external cron)
 _RUN_SCHEDULE = os.getenv('RUN_SCHEDULE', 'true').lower() not in ('false', '0', 'no')
 
@@ -72,14 +77,39 @@ async def get_prompt():
 @bot.event
 async def on_ready():
     print(f"🤑 Logged in as: {bot.user}")
-    # Start the daily challenge loop if scheduling is enabled (skip when relying on cron)
+    # If invoked in single-run mode via cron, perform that action once and exit
+    if _RUN_MODE == 'daily':
+        channel = bot.get_channel(CHALLENGE_CHANNEL_ID)
+        if channel:
+            prompt = await get_prompt()
+            await channel.send(f"🎯 **Daily Challenge**:\n{prompt}")
+        await bot.close()
+        return
+
+    if _RUN_MODE == 'leaderboard':
+        channel = bot.get_channel(LEADERBOARD_CHANNEL_ID)
+        if channel:
+            c.execute(
+                "SELECT user_id, points FROM rankings ORDER BY points DESC LIMIT 5"
+            )
+            top = c.fetchall()
+            text = "🏆 **Top 5 Creators:**\n" + "\n".join(
+                [f"{i+1}. <@{user}> – {pts} pts" for i, (user, pts) in enumerate(top)]
+            )
+            await channel.send(text)
+        await bot.close()
+        return
+
+    # Normal operation: start the daily challenge loop if scheduling is enabled
     if _RUN_SCHEDULE:
         try:
             post_daily_challenge.start()
         except RuntimeError:
             pass
     else:
-        print("🕒 Automatic scheduling disabled (RUN_SCHEDULE=false); skipping daily loop startup.")
+        print(
+            "🕒 Automatic scheduling disabled (RUN_SCHEDULE=false); skipping daily loop startup."
+        )
 
 # Daily challenge poster
 @tasks.loop(hours=24)

@@ -95,6 +95,11 @@ async def ping(ctx):
 async def list_commands(ctx):
     await ctx.send("📜 Commands: `!ping`, `!submit <link>`, `!rank`, `!leaderboard`, `!postprompt`")
 
+@bot.command(name='how')
+async def how(ctx):
+    """Alias for !commands."""
+    await ctx.send("📜 Commands: `!ping`, `!submit <link>`, `!rank`, `!leaderboard`, `!postprompt`")
+
 @bot.command()
 async def submit(ctx, link: str):
     user_id = str(ctx.author.id)

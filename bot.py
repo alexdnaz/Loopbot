@@ -359,9 +359,18 @@ async def on_message(message):
         return
 
     uid = str(message.author.id)
-    # Attachment submission
+    # Attachment submission (auto-create thread and record)
     if message.attachments:
         att = message.attachments[0]
+        # Record submission metadata
+        now_iso = datetime.utcnow().isoformat()
+        c.execute(
+            "INSERT INTO audio_submissions (user_id, filename, timestamp) VALUES (?, ?, ?)",
+            (uid, att.filename, now_iso)
+        )
+        sub_id = c.lastrowid
+        conn.commit()
+        # Award point
         c.execute(
             "INSERT OR REPLACE INTO rankings (user_id, points) "
             "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
@@ -369,16 +378,26 @@ async def on_message(message):
         )
         conn.commit()
         points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
-        file = await att.to_file()
-        await message.channel.send(
-            f"📥 **File Submission from {message.author.mention}:**", file=file
-        )
-        await message.channel.send(f"✅ Submission accepted! You now have {points} points.")
+        # Post and thread
+        chan = message.channel
+        sent = await chan.send(f"📥 **File Submission from {message.author.mention}:**", file=await att.to_file())
+        thread = await sent.create_thread(name=f"{message.author.name}'s submission")
+        c.execute("UPDATE audio_submissions SET thread_id = ? WHERE id = ?", (thread.id, sub_id))
+        conn.commit()
+        await chan.send(f"✅ Submission accepted! You now have {points} points.")
         return
 
-    # Link submission
+    # Link submission (auto-create thread and record)
     link = message.content.strip()
     if link:
+        now_iso = datetime.utcnow().isoformat()
+        c.execute(
+            "INSERT INTO link_submissions (user_id, link, timestamp, tags) VALUES (?, ?, ?, '')",
+            (uid, link, now_iso)
+        )
+        sub_id = c.lastrowid
+        conn.commit()
+        # Award point
         c.execute(
             "INSERT OR REPLACE INTO rankings (user_id, points) "
             "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
@@ -386,10 +405,12 @@ async def on_message(message):
         )
         conn.commit()
         points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
-        await message.channel.send(
-            f"📥 **Link Submission from {message.author.mention}:** {link}"
-        )
-        await message.channel.send(f"✅ Submission accepted! You now have {points} points.")
+        chan = message.channel
+        sent = await chan.send(f"📥 **Link Submission from {message.author.mention}:** {link}")
+        thread = await sent.create_thread(name=f"{message.author.name}'s submission")
+        c.execute("UPDATE link_submissions SET thread_id = ? WHERE id = ?", (thread.id, sub_id))
+        conn.commit()
+        await chan.send(f"✅ Submission accepted! You now have {points} points.")
 
 # Run bot
 bot.run(TOKEN)

@@ -214,7 +214,15 @@ async def how(ctx):
 @bot.command()
 async def submit(ctx, link: str = None):
     """Accept a URL or an attached audio file (.mp3, .wav, .m4a) as a submission and award points."""
-    attachments = ctx.message.attachments
+    # If user replied to a message, use that message's attachment or text
+    ref = ctx.message.reference
+    if ref and ref.message_id:
+        ref_chan = bot.get_channel(ref.channel_id) or ctx.channel
+        ref_msg = await ref_chan.fetch_message(ref.message_id)
+        attachments = ref_msg.attachments
+        link = None if attachments else ref_msg.content.strip()
+    else:
+        attachments = ctx.message.attachments
     # Attachment path: accept any file (audio/image/video/etc.)
     if attachments:
         att = attachments[0]

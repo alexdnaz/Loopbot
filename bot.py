@@ -194,7 +194,7 @@ async def ping(ctx):
 @bot.command(name='commands')
 async def list_commands(ctx):
     await ctx.send(
-        "📜 Commands: `!ping`, `!how`, `!submit <link>` or attach a file, `!rank`, `!leaderboard`, `!postprompt`"
+        "📜 Commands: `!ping`, `!how`, `!submit <link>` or attach a file, `!vote <1-10>`, `!rank`, `!leaderboard`, `!postprompt`"
     )
 
 @bot.command(name='how')
@@ -264,6 +264,38 @@ async def leaderboard(ctx):
         [f"{i+1}. <@{user}> – {pts} pts" for i, (user, pts) in enumerate(top)]
     )
     await ctx.send(text)
+
+@bot.command(name='vote')
+async def vote(ctx, score: int):
+    """Cast a 1–10 vote for the submission associated with this thread."""
+    thread = ctx.channel
+    sub = None
+    # Check link-submissions
+    if hasattr(thread, 'parent_id') and thread.parent_id:
+        c.execute("SELECT id FROM link_submissions WHERE thread_id = ?", (thread.id,))
+        row = c.fetchone()
+        sub = ('link', row[0]) if row else None
+        if not sub:
+            c.execute("SELECT id FROM audio_submissions WHERE thread_id = ?", (thread.id,))
+            row = c.fetchone()
+            sub = ('audio', row[0]) if row else None
+    if not sub:
+        await ctx.send("❌ You can only vote inside a submission thread.")
+        return
+    if not 1 <= score <= 10:
+        await ctx.send("❌ Please vote with a score between 1 and 10.")
+        return
+    sub_id = sub[1]
+    uid = str(ctx.author.id)
+    try:
+        c.execute(
+            "INSERT INTO votes (user_id, submission_id, score) VALUES (?, ?, ?)",
+            (uid, sub_id, score)
+        )
+        conn.commit()
+        await ctx.send(f"✅ Your vote of {score} has been recorded.")
+    except sqlite3.IntegrityError:
+        await ctx.send("❌ You have already voted for this submission.")
 
 @bot.command()
 @commands.has_permissions(administrator=True)

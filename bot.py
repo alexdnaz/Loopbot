@@ -5,10 +5,11 @@ import sqlite3
 import itertools
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, time as dtime
 
 import openai
 import sys
+import random
 
 # Load environment variables
 # Load environment variables
@@ -17,8 +18,14 @@ TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 openai.api_key = os.getenv('OPENAI_API_KEY')
 # Determine if we're running in single-run mode (cron) vs. normal loop
 _RUN_MODE = sys.argv[1] if len(sys.argv) > 1 else None
-# Enable or disable the built-in daily scheduling (set RUN_SCHEDULE=false to rely on external cron)
+# Enable or disable the built-in scheduling (set RUN_SCHEDULE=false to rely on external cron)
 _RUN_SCHEDULE = os.getenv('RUN_SCHEDULE', 'true').lower() not in ('false', '0', 'no')
+
+# Schedule times for internal tasks (24h format), configurable via .env
+DAILY_HOUR = int(os.getenv('DAILY_HOUR', '4'))
+DAILY_MINUTE = int(os.getenv('DAILY_MINUTE', '0'))
+LEADERBOARD_HOUR = int(os.getenv('LEADERBOARD_HOUR', '4'))
+LEADERBOARD_MINUTE = int(os.getenv('LEADERBOARD_MINUTE', '5'))
 
 # Intents
 intents = discord.Intents.default()
@@ -80,14 +87,16 @@ c.execute('''CREATE TABLE IF NOT EXISTS rankings (
 )''')
 conn.commit()
 
-# Static fallback prompts
-static_prompts = itertools.cycle([
+# Static fallback prompts (shuffled to vary order)
+_fallback_prompts = [
     "🌿 Create a loop inspired by nature's rhythm.",
     "💭 Make something based on a dream you had.",
     "🚀 Design a sound/scene/story from the future.",
     "🌀 Loop based on the feeling of déjà vu.",
     "🔥 Create something chaotic, messy, raw."
-])
+]
+random.shuffle(_fallback_prompts)
+static_prompts = itertools.cycle(_fallback_prompts)
 
 # Generate a prompt using GPT
 async def generate_ai_prompt():
@@ -142,6 +151,7 @@ async def on_ready():
     if _RUN_SCHEDULE:
         try:
             post_daily_challenge.start()
+            post_daily_leaderboard.start()
         except RuntimeError:
             pass
     else:
@@ -149,15 +159,32 @@ async def on_ready():
             "🕒 Automatic scheduling disabled (RUN_SCHEDULE=false); skipping daily loop startup."
         )
 
-# Daily challenge poster
-@tasks.loop(hours=24)
+## Scheduled posts
+@tasks.loop(time=dtime(hour=DAILY_HOUR, minute=DAILY_MINUTE))
 async def post_daily_challenge():
+    """Post the daily creative prompt at the configured time."""
     channel = bot.get_channel(CHALLENGE_CHANNEL_ID)
     if channel:
         prompt = await get_prompt()
         await channel.send(f"🎯 **Daily Challenge**:\n{prompt}")
     else:
         print("⚠️ Challenge channel not found. Check CHALLENGE_CHANNEL_ID.")
+
+@tasks.loop(time=dtime(hour=LEADERBOARD_HOUR, minute=LEADERBOARD_MINUTE))
+async def post_daily_leaderboard():
+    """Post the daily top-5 leaderboard at the configured time."""
+    channel = bot.get_channel(LEADERBOARD_CHANNEL_ID)
+    if channel:
+        c.execute(
+            "SELECT user_id, points FROM rankings ORDER BY points DESC LIMIT 5"
+        )
+        top = c.fetchall()
+        text = "🏆 **Top 5 Creators:**\n" + "\n".join(
+            [f"{i+1}. <@{user}> – {pts} pts" for i, (user, pts) in enumerate(top)]
+        )
+        await channel.send(text)
+    else:
+        print("⚠️ Leaderboard channel not found. Check LEADERBOARD_CHANNEL_ID.")
 
 # Commands
 @bot.command()
@@ -166,7 +193,9 @@ async def ping(ctx):
 
 @bot.command(name='commands')
 async def list_commands(ctx):
-    await ctx.send("📜 Commands: `!ping`, `!submit <link>`, `!rank`, `!leaderboard`, `!postprompt`")
+    await ctx.send(
+        "📜 Commands: `!ping`, `!how`, `!submit <link>` or attach a file, `!rank`, `!leaderboard`, `!postprompt`"
+    )
 
 @bot.command(name='how')
 async def how(ctx):
@@ -174,7 +203,7 @@ async def how(ctx):
     how_text = (
         "👋 **How to use LoopBot:**\n"
         "1. Each morning, check the daily challenge in the designated channel or with `!postprompt`.\n"
-        "2. Create your work and submit it with `!submit <link>`.\n"
+        "2. Create your work and submit it with `!submit <link>` or attach a media file (audio/image/video).\n"
         "3. Earn 1 point per submission and bonus points for 👍 reactions.\n"
         "4. View your score with `!rank` and the top creators with `!leaderboard`.\n"
         "5. Administrators can manually post a prompt using `!postprompt`.\n"
@@ -183,17 +212,41 @@ async def how(ctx):
     await ctx.send(how_text)
 
 @bot.command()
-async def submit(ctx, link: str):
-    user_id = str(ctx.author.id)
-    c.execute("INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)", (user_id, user_id))
+async def submit(ctx, link: str = None):
+    """Accept a URL or an attached audio file (.mp3, .wav, .m4a) as a submission and award points."""
+    attachments = ctx.message.attachments
+    # Attachment path: accept any file (audio/image/video/etc.)
+    if attachments:
+        att = attachments[0]
+        uid = str(ctx.author.id)
+        c.execute(
+            "INSERT OR REPLACE INTO rankings (user_id, points) "
+            "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
+            (uid, uid),
+        )
+        conn.commit()
+        points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
+        sub_ch = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
+        if sub_ch:
+            file = await att.to_file()
+            await sub_ch.send(f"📥 **File Submission from {ctx.author.mention}:**", file=file)
+        await ctx.send(f"✅ Submission accepted! You now have {points} points.")
+        return
+    # URL submission path
+    if not link:
+        await ctx.send("❌ Please provide a link or attach a file.")
+        return
+    uid = str(ctx.author.id)
+    c.execute(
+        "INSERT OR REPLACE INTO rankings (user_id, points) "
+        "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
+        (uid, uid),
+    )
     conn.commit()
-    points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (user_id,)).fetchone()[0]
-
-    sub_channel = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
-    if sub_channel:
-        message = await sub_channel.send(f"📥 **Submission from {ctx.author.mention}**:\n{link}")
-        await message.create_thread(name=f"{ctx.author.name}'s Loop")
-
+    points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
+    sub_ch = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
+    if sub_ch:
+        await sub_ch.send(f"📥 **Link Submission from {ctx.author.mention}:** {link}")
     await ctx.send(f"✅ Submission accepted! You now have {points} points.")
 
 @bot.command()
@@ -236,9 +289,8 @@ async def on_member_join(member):
     welcome_chan = bot.get_channel(WELCOME_CHANNEL_ID)
     if welcome_chan:
         text = (
-            "🎉 Welcome newcomers! Please introduce yourself here so we can get to know you.\n"
-            f"Also, check out the current challenge in {challenge_chan.mention} "
-            "and have fun making something new!"
+            f"🎉 Welcome {member.mention}! Please introduce yourself here so we can get to know you.\n"
+            f"Also, check out the current challenge in {challenge_chan.mention} and have fun making something new!"
         )
         await welcome_chan.send(text)
 
@@ -258,3 +310,50 @@ async def on_raw_reaction_add(payload):
 
 # Run bot
 bot.run(TOKEN)
+
+# Allow raw file or link posts in submissions channel as submissions
+@bot.event
+async def on_message(message):
+    """Allow raw file or link posts in submissions channel as submissions."""
+    # Process commands first (so !submit still works)
+    await bot.process_commands(message)
+    # Ignore bots and non-submissions channels or prefixed commands
+    if (
+        message.author.bot
+        or message.channel.id != SUBMISSIONS_CHANNEL_ID
+        or message.content.startswith(bot.command_prefix)
+    ):
+        return
+
+    uid = str(message.author.id)
+    # Attachment submission
+    if message.attachments:
+        att = message.attachments[0]
+        c.execute(
+            "INSERT OR REPLACE INTO rankings (user_id, points) "
+            "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
+            (uid, uid),
+        )
+        conn.commit()
+        points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
+        file = await att.to_file()
+        await message.channel.send(
+            f"📥 **File Submission from {message.author.mention}:**", file=file
+        )
+        await message.channel.send(f"✅ Submission accepted! You now have {points} points.")
+        return
+
+    # Link submission
+    link = message.content.strip()
+    if link:
+        c.execute(
+            "INSERT OR REPLACE INTO rankings (user_id, points) "
+            "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
+            (uid, uid),
+        )
+        conn.commit()
+        points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
+        await message.channel.send(
+            f"📥 **Link Submission from {message.author.mention}:** {link}"
+        )
+        await message.channel.send(f"✅ Submission accepted! You now have {points} points.")

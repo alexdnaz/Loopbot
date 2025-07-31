@@ -76,7 +76,7 @@ CHALLENGE_CHANNEL_ID = 1393808509463691294  # current-challenge
 SUBMISSIONS_CHANNEL_ID = 1393808617354035321 # submissions
 LEADERBOARD_CHANNEL_ID = 1393810922396585984 # leaderboard
 WELCOME_CHANNEL_ID = 1393807671525773322     # welcome
-HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954# how-it-works
+HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
 
 # SQLite DB setup
 conn = sqlite3.connect('rankings.db')
@@ -105,10 +105,10 @@ async def generate_ai_prompt():
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a creative challenge bot that generates short, unique prompts for music, art, or storytelling."},
-                {"role": "user", "content": "Give me a short, vivid creative challenge prompt for a Discord community."}
+                {"role": "user", "content": "Give me a short, vivid creative challenge prompt for my Discord community."}
             ],
-                max_tokens=100,
-            temperature=0.85
+                max_tokens=50,
+            temperature=0.70
         )
         data = await response
         return data.choices[0].message.content.strip()
@@ -294,12 +294,16 @@ async def on_member_join(member):
         )
         await welcome_chan.send(text)
 
+
 # Reaction-based voting
 @bot.event
 async def on_raw_reaction_add(payload):
     if payload.channel_id == SUBMISSIONS_CHANNEL_ID and payload.emoji.name == "👍":
         user_id = str(payload.user_id)
-        c.execute("INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)", (user_id, user_id))
+        c.execute(
+            "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
+            (user_id, user_id),
+        )
         conn.commit()
 
         guild = bot.get_guild(payload.guild_id)
@@ -307,9 +311,6 @@ async def on_raw_reaction_add(payload):
         channel = bot.get_channel(payload.channel_id)
         if channel and member:
             await channel.send(f"🗳️ {member.mention} voted! +1 point.")
-
-# Run bot
-bot.run(TOKEN)
 
 # Allow raw file or link posts in submissions channel as submissions
 @bot.event
@@ -357,3 +358,6 @@ async def on_message(message):
             f"📥 **Link Submission from {message.author.mention}:** {link}"
         )
         await message.channel.send(f"✅ Submission accepted! You now have {points} points.")
+
+# Run bot
+bot.run(TOKEN)

@@ -262,6 +262,15 @@ async def submit(ctx, link: str = None):
     # Attachment path: accept any file (audio/image/video/etc.)
     if attachments:
         att = attachments[0]
+        now_iso = datetime.utcnow().isoformat()
+        # record submission
+        c.execute(
+            "INSERT INTO audio_submissions (user_id, filename, timestamp) VALUES (?, ?, ?)",
+            (str(ctx.author.id), att.filename, now_iso)
+        )
+        sub_id = c.lastrowid
+        conn.commit()
+        # award point
         uid = str(ctx.author.id)
         c.execute(
             "INSERT OR REPLACE INTO rankings (user_id, points) "
@@ -272,14 +281,24 @@ async def submit(ctx, link: str = None):
         points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
         sub_ch = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
         if sub_ch:
-            file = await att.to_file()
-            await sub_ch.send(f"📥 **File Submission from {ctx.author.mention}:**", file=file)
-        await ctx.send(f"✅ Submission accepted! You now have {points} points.")
+            sent = await sub_ch.send(f"📥 **File Submission from {ctx.author.mention}:**", file=await att.to_file())
+            thread = await sent.create_thread(name=f"{ctx.author.name}'s Submission")
+            c.execute("UPDATE audio_submissions SET thread_id = ? WHERE id = ?", (thread.id, sub_id))
+            conn.commit()
+        await ctx.send(f"✅ Audio submission accepted! You now have {points} points.")
         return
     # URL submission path
     if not link:
         await ctx.send("❌ Please provide a link or attach a file.")
         return
+    now_iso = datetime.utcnow().isoformat()
+    c.execute(
+        "INSERT INTO link_submissions (user_id, link, timestamp, tags) VALUES (?, ?, ?, '')",
+        (str(ctx.author.id), link, now_iso)
+    )
+    sub_id = c.lastrowid
+    conn.commit()
+    # award point
     uid = str(ctx.author.id)
     c.execute(
         "INSERT OR REPLACE INTO rankings (user_id, points) "
@@ -290,7 +309,10 @@ async def submit(ctx, link: str = None):
     points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
     sub_ch = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
     if sub_ch:
-        await sub_ch.send(f"📥 **Link Submission from {ctx.author.mention}:** {link}")
+        sent = await sub_ch.send(f"📥 **Link Submission from {ctx.author.mention}:** {link}")
+        thread = await sent.create_thread(name=f"{ctx.author.name}'s Submission")
+        c.execute("UPDATE link_submissions SET thread_id = ? WHERE id = ?", (thread.id, sub_id))
+        conn.commit()
     await ctx.send(f"✅ Submission accepted! You now have {points} points.")
 
 @bot.command()

@@ -26,6 +26,12 @@ DAILY_HOUR = int(os.getenv('DAILY_HOUR', '4'))
 DAILY_MINUTE = int(os.getenv('DAILY_MINUTE', '0'))
 LEADERBOARD_HOUR = int(os.getenv('LEADERBOARD_HOUR', '4'))
 LEADERBOARD_MINUTE = int(os.getenv('LEADERBOARD_MINUTE', '5'))
+# Voting summary schedule (default shortly after leaderboard)
+VOTE_SUMMARY_HOUR = int(os.getenv('VOTE_SUMMARY_HOUR', str(LEADERBOARD_HOUR)))
+# default to one minute after leaderboard
+VOTE_SUMMARY_MINUTE = int(os.getenv(
+    'VOTE_SUMMARY_MINUTE', str((LEADERBOARD_MINUTE + 1) % 60)
+))
 
 # Intents
 intents = discord.Intents.default()
@@ -153,6 +159,7 @@ async def on_ready():
         try:
             post_daily_challenge.start()
             post_daily_leaderboard.start()
+            post_vote_summary.start()
         except RuntimeError:
             pass
     else:
@@ -186,6 +193,34 @@ async def post_daily_leaderboard():
         await channel.send(text)
     else:
         print("⚠️ Leaderboard channel not found. Check LEADERBOARD_CHANNEL_ID.")
+
+@tasks.loop(time=dtime(hour=VOTE_SUMMARY_HOUR, minute=VOTE_SUMMARY_MINUTE))
+async def post_vote_summary():
+    """Post a daily summary of top-voted submissions in the voting-hall channel."""
+    channel = bot.get_channel(VOTING_HALL_CHANNEL_ID)
+    if channel:
+        c.execute(
+            "SELECT submission_id, SUM(score) AS total FROM votes "
+            "GROUP BY submission_id ORDER BY total DESC LIMIT 5"
+        )
+        rows = c.fetchall()
+        if not rows:
+            await channel.send("🏅 No votes have been cast yet.")
+            return
+        lines = ["🏅 **Top 5 Voted Submissions:**"]
+        for i, (sub_id, total) in enumerate(rows):
+            c.execute("SELECT link FROM link_submissions WHERE id = ?", (sub_id,))
+            r = c.fetchone()
+            if r:
+                label = r[0]
+            else:
+                c.execute("SELECT filename FROM audio_submissions WHERE id = ?", (sub_id,))
+                ar = c.fetchone()
+                label = ar[0] if ar else f"Submission #{sub_id}"
+            lines.append(f"{i+1}. {label} – {total} pts")
+        await channel.send("\n".join(lines))
+    else:
+        print("⚠️ Voting hall channel not found. Check VOTING_HALL_CHANNEL_ID.")
 
 # Commands
 @bot.command()

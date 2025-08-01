@@ -177,11 +177,18 @@ async def generate_ai_prompt():
         response = openai.ChatCompletion.acreate(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a creative challenge bot that generates short, unique prompts for music, art, or storytelling."},
-                {"role": "user", "content": "Give me a short, vivid creative challenge prompt for my Discord community."}
+                {"role": "system", "content": (
+                    "You are a creative challenge bot. Provide concise, vivid, and self-contained prompts "
+                    "in complete sentences that inspire music, art, or storytelling."
+                )},
+                {"role": "user", "content": (
+                    "Please give me a creative challenge prompt: one clear, vivid sentence."
+                )}
             ],
-                max_tokens=50,
-            temperature=0.70
+            max_tokens=100,
+            temperature=0.7,
+            frequency_penalty=0.5,
+            presence_penalty=0.0,
         )
         data = await response
         return data.choices[0].message.content.strip()

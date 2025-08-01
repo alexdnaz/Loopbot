@@ -528,7 +528,10 @@ async def on_message(message):
         chan = message.channel
         sent = await chan.send(f"📥 **File Submission from {message.author.mention}:**", file=await att.to_file())
         thread = await sent.create_thread(name=f"{message.author.name}'s submission")
-        c.execute("UPDATE audio_submissions SET thread_id = ? WHERE id = ?", (thread.id, sub_id))
+        c.execute(
+            "UPDATE audio_submissions SET thread_id = ?, message_id = ? WHERE id = ?",
+            (thread.id, sent.id, sub_id)
+        )
         conn.commit()
         await chan.send(f"✅ Submission accepted! You now have {points} points.")
         return
@@ -554,7 +557,10 @@ async def on_message(message):
         chan = message.channel
         sent = await chan.send(f"📥 **Link Submission from {message.author.mention}:** {link}")
         thread = await sent.create_thread(name=f"{message.author.name}'s submission")
-        c.execute("UPDATE link_submissions SET thread_id = ? WHERE id = ?", (thread.id, sub_id))
+        c.execute(
+            "UPDATE link_submissions SET thread_id = ?, message_id = ? WHERE id = ?",
+            (thread.id, sent.id, sub_id)
+        )
         conn.commit()
         await chan.send(f"✅ Submission accepted! You now have {points} points.")
 

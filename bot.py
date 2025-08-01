@@ -521,8 +521,17 @@ async def vote(ctx, score: int):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def postprompt(ctx):
+    """Post today's creative challenge as an embed with optional banner."""
     prompt = await get_prompt()
-    await ctx.send(f"🎯 **Today's Creative Challenge:**\n{prompt}")
+    embed = discord.Embed(
+        title="🎯 Today's Creative Challenge",
+        description=prompt,
+        color=discord.Color.purple(),
+    )
+    banner = os.getenv('DAILY_BANNER_URL')
+    if banner:
+        embed.set_image(url=banner)
+    await ctx.send(embed=embed)
 
 @postprompt.error
 async def postprompt_error(ctx, error):

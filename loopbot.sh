@@ -4,6 +4,9 @@
 cd "$(dirname "$0")"
 source bin/activate
 
+# Redirect all output (stdout/stderr) to discord.log
+exec >> discord.log 2>&1
+
 echo "🔁 Starting Discord bot loop (caffeinated)..."
 
 # Prevent system sleep while the bot is running

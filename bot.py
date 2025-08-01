@@ -93,6 +93,13 @@ c.execute('''CREATE TABLE IF NOT EXISTS rankings (
     points INTEGER
 )''')
 conn.commit()
+# Ensure submissions tables have tags field for tag-based search
+try:
+    c.execute('ALTER TABLE audio_submissions ADD COLUMN tags TEXT')
+    c.execute('ALTER TABLE link_submissions ADD COLUMN tags TEXT')
+    conn.commit()
+except sqlite3.OperationalError:
+    pass
 
 # Tables for storing submissions and votes
 c.execute('''CREATE TABLE IF NOT EXISTS audio_submissions (
@@ -334,10 +341,13 @@ async def submit(ctx, link: str = None):
         print(f"📸 Submission by {ctx.author} | MsgID: {ctx.message.id}")
         att = attachments[0]
         now_iso = datetime.utcnow().isoformat()
-        # record submission (including orig message for reply-votes)
+        # extract tags from command content
+        tag_list = [w.lstrip('#') for w in ctx.message.content.split() if w.startswith('#')]
+        tags = ' '.join(tag_list)
+        # record submission (tags + orig message for reply-votes)
         c.execute(
-            "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id) VALUES (?, ?, ?, ?)",
-            (str(ctx.author.id), att.filename, now_iso, ctx.message.id)
+            "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id, tags) VALUES (?, ?, ?, ?, ?)",
+            (str(ctx.author.id), att.filename, now_iso, ctx.message.id, tags)
         )
         sub_id = c.lastrowid
         conn.commit()
@@ -367,8 +377,14 @@ async def submit(ctx, link: str = None):
         return
     now_iso = datetime.utcnow().isoformat()
     c.execute(
-        "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, '', ?)",
-        (str(ctx.author.id), link, now_iso, ctx.message.id)
+        "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, ?, ?)",
+        (
+            str(ctx.author.id),
+            link,
+            now_iso,
+            ' '.join([w.lstrip('#') for w in ctx.message.content.split()[1:] if w.startswith('#')]),
+            ctx.message.id,
+        )
     )
     sub_id = c.lastrowid
     conn.commit()
@@ -492,6 +508,33 @@ async def postrules(ctx):
         await rules_chan.send(chunk)
     await ctx.send(f"✅ Community guidelines posted in {rules_chan.mention}.")
 
+@bot.command(name='search')
+async def search(ctx, tag: str = None):
+    """Search past submissions by #tag."""
+    if not tag:
+        return await ctx.send("❌ Please specify a tag to search, e.g. `!search #music`." )
+    tag_clean = tag.lstrip('#')
+    results = []
+    # link submissions
+    c.execute(
+        "SELECT user_id, link, timestamp FROM link_submissions WHERE tags LIKE ?",
+        (f"%{tag_clean}%",)
+    )
+    for user_id, link, ts in c.fetchall():
+        results.append(f"🔗 {link} by <@{user_id}> at {ts}")
+    # file submissions
+    c.execute(
+        "SELECT user_id, filename, timestamp FROM audio_submissions WHERE tags LIKE ?",
+        (f"%{tag_clean}%",)
+    )
+    for user_id, filename, ts in c.fetchall():
+        results.append(f"📁 {filename} by <@{user_id}> at {ts}")
+    if not results:
+        return await ctx.send(f"🔍 No submissions found tagged #{tag_clean}.")
+    # limit output
+    out = results[:10]
+    await ctx.send(f"🔍 Search results for #{tag_clean}:\n" + "\n".join(out))
+
 ## Welcome new members
 
 @bot.event
@@ -547,11 +590,14 @@ async def on_message(message):
         await message.add_reaction("⬇️")
         print(f"📸 Passive submission by {message.author} | MsgID: {message.id}")
         att = message.attachments[0]
-        # Record submission metadata (including orig message for reply-votes)
+        # Record submission metadata (tags + original message for reply-votes)
         now_iso = datetime.utcnow().isoformat()
+        # extract hashtags from content
+        tag_list = [w.lstrip('#') for w in message.content.split() if w.startswith('#')]
+        tags = ' '.join(tag_list)
         c.execute(
-            "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id) VALUES (?, ?, ?, ?)",
-            (uid, att.filename, now_iso, message.id)
+            "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id, tags) VALUES (?, ?, ?, ?, ?)",
+            (uid, att.filename, now_iso, message.id, tags)
         )
         sub_id = c.lastrowid
         conn.commit()
@@ -575,13 +621,17 @@ async def on_message(message):
         await chan.send(f"✅ Submission accepted! You now have {points} points.")
         return
 
-    # Link submission (auto-create thread and record)
-    link = message.content.strip()
-    if link:
+    # Link submission (record tags + original message)
+    raw = message.content.strip()
+    if raw:
         now_iso = datetime.utcnow().isoformat()
+        parts = raw.split()
+        url = parts[0]
+        tag_list = [w.lstrip('#') for w in parts[1:] if w.startswith('#')]
+        tags = ' '.join(tag_list)
         c.execute(
-            "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, '', ?)",
-            (uid, link, now_iso, message.id)
+            "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, ?, ?)",
+            (uid, url, now_iso, tags, message.id)
         )
         sub_id = c.lastrowid
         conn.commit()

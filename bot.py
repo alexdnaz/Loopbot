@@ -27,11 +27,11 @@ DAILY_MINUTE = int(os.getenv('DAILY_MINUTE', '0'))
 LEADERBOARD_HOUR = int(os.getenv('LEADERBOARD_HOUR', '4'))
 LEADERBOARD_MINUTE = int(os.getenv('LEADERBOARD_MINUTE', '5'))
 # Voting summary schedule (default shortly after leaderboard)
-VOTE_SUMMARY_HOUR = int(os.getenv('VOTE_SUMMARY_HOUR', str(LEADERBOARD_HOUR)))
-# default to one minute after leaderboard
-VOTE_SUMMARY_MINUTE = int(os.getenv(
-    'VOTE_SUMMARY_MINUTE', str((LEADERBOARD_MINUTE + 1) % 60)
+# Voting summary schedule (default one hour before leaderboard)
+VOTE_SUMMARY_HOUR = int(os.getenv(
+    'VOTE_SUMMARY_HOUR', str((LEADERBOARD_HOUR - 1) % 24)
 ))
+VOTE_SUMMARY_MINUTE = int(os.getenv('VOTE_SUMMARY_MINUTE', str(LEADERBOARD_MINUTE)))
 
 # Intents
 intents = discord.Intents.default()

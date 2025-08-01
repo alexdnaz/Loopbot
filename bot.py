@@ -368,7 +368,7 @@ async def submit(ctx, link: str = None):
             "UPDATE audio_submissions SET message_id = ? WHERE id = ?",
             (sent.id, sub_id)
         )
-            conn.commit()
+        conn.commit()
         await ctx.send(f"✅ Audio submission accepted! You now have {points} points.")
         return
     # URL submission path

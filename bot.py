@@ -182,7 +182,7 @@ async def generate_ai_prompt():
                     "in complete sentences that inspire music, art, or storytelling."
                 )},
                 {"role": "user", "content": (
-                    "Please give me a creative challenge prompt: one clear, vivid sentence."
+                    "Please give me a creative challenge prompt: one or two clear, vivid sentences."
                 )}
             ],
             max_tokens=100,
@@ -328,6 +328,10 @@ async def submit(ctx, link: str = None):
     if ref and ref.message_id:
         ref_chan = bot.get_channel(ref.channel_id) or ctx.channel
         ref_msg = await ref_chan.fetch_message(ref.message_id)
+        # Only allow submitting your own messages
+        if ref_msg.author.id != ctx.author.id:
+            await ctx.send("❌ You can only submit your own attachments or messages.")
+            return
         attachments = ref_msg.attachments
         link = None if attachments else ref_msg.content.strip()
     else:

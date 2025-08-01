@@ -285,12 +285,12 @@ async def submit(ctx, link: str = None):
         link = None if attachments else ref_msg.content.strip()
     else:
         attachments = ctx.message.attachments
-    # If no attachment on this command and not replying, try to find recent self-posted attachments
-    if not attachments and not (ref and ref.message_id):
+    # If no attachment/reply/link, try to find recent self-posted attachments as fallback
+    if not attachments and link is None and not (ref and ref.message_id):
         async for prev in ctx.channel.history(limit=10, before=ctx.message):
             if prev.author == ctx.author and prev.attachments:
                 attachments = prev.attachments
-                # point reference to that message for logging consistency
+                # Keep ref for consistency (logs/threads)
                 ref = prev.reference or ctx.message.reference
                 break
     # Attachment path: accept any file (audio/image/video/etc.)

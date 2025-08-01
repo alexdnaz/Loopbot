@@ -13,7 +13,8 @@ trap "echo '🛑 Stopping caffeinate'; kill $CAFFEINATE_PID" EXIT
 
 while true; do
     echo "🚀 Launching bot.py..."
-    python bot.py
+    # Use python3 to ensure correct interpreter
+    python3 bot.py
 
     echo "💥 Bot crashed or exited. Restarting in 5 seconds..."
     sleep 5

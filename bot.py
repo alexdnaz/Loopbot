@@ -353,11 +353,11 @@ async def submit(ctx, link: str = None):
         sub_ch = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
         if sub_ch:
             sent = await sub_ch.send(f"📥 **File Submission from {ctx.author.mention}:**", file=await att.to_file())
-            thread = await sent.create_thread(name=f"{ctx.author.name}'s Submission")
-            c.execute(
-                "UPDATE audio_submissions SET thread_id = ?, message_id = ? WHERE id = ?",
-                (thread.id, sent.id, sub_id)
-            )
+        # Skip auto-creating threads; only record message ID for voting
+        c.execute(
+            "UPDATE audio_submissions SET message_id = ? WHERE id = ?",
+            (sent.id, sub_id)
+        )
             conn.commit()
         await ctx.send(f"✅ Audio submission accepted! You now have {points} points.")
         return
@@ -384,10 +384,10 @@ async def submit(ctx, link: str = None):
     sub_ch = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
     if sub_ch:
         sent = await sub_ch.send(f"📥 **Link Submission from {ctx.author.mention}:** {link}")
-        thread = await sent.create_thread(name=f"{ctx.author.name}'s Submission")
+        # Skip auto-creating threads; only record message ID for voting
         c.execute(
-            "UPDATE link_submissions SET thread_id = ?, message_id = ? WHERE id = ?",
-            (thread.id, sent.id, sub_id)
+            "UPDATE link_submissions SET message_id = ? WHERE id = ?",
+            (sent.id, sub_id)
         )
         conn.commit()
     await ctx.send(f"✅ Submission accepted! You now have {points} points.")

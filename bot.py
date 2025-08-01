@@ -253,10 +253,10 @@ async def post_daily_challenge():
             description=prompt,
             color=discord.Color.blue(),
         )
-        # Optional: set a banner image via env var or static URL
-        # banner = os.getenv('DAILY_BANNER_URL')
-        # if banner:
-        #     embed.set_image(url=banner)
+        # Optional: set a banner image via env var (DAILY_CHALLENGE_URL)
+        banner = os.getenv('DAILY_CHALLENGE_URL')
+        if banner:
+            embed.set_image(url=banner)
         await channel.send(embed=embed)
     else:
         print("⚠️ Challenge channel not found. Check CHALLENGE_CHANNEL_ID.")

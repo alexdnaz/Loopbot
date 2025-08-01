@@ -119,6 +119,39 @@ c.execute('''CREATE TABLE IF NOT EXISTS votes (
     PRIMARY KEY(user_id, submission_id)
 )''')
 conn.commit()
+# Add original message ID columns if missing (for reply-based voting)
+try:
+    c.execute('ALTER TABLE audio_submissions ADD COLUMN orig_message_id INTEGER')
+    c.execute('ALTER TABLE link_submissions ADD COLUMN orig_message_id INTEGER')
+    conn.commit()
+except sqlite3.OperationalError:
+    pass
+
+# Tables for storing submissions and votes
+c.execute('''CREATE TABLE IF NOT EXISTS audio_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    filename TEXT,
+    timestamp TEXT,
+    thread_id INTEGER,
+    message_id INTEGER
+)''')
+c.execute('''CREATE TABLE IF NOT EXISTS link_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    link TEXT,
+    timestamp TEXT,
+    tags TEXT,
+    thread_id INTEGER,
+    message_id INTEGER
+)''')
+c.execute('''CREATE TABLE IF NOT EXISTS votes (
+    user_id TEXT,
+    submission_id INTEGER,
+    score INTEGER,
+    PRIMARY KEY(user_id, submission_id)
+)''')
+conn.commit()
 
 # Static fallback prompts (shuffled to vary order)
 _fallback_prompts = [
@@ -301,10 +334,10 @@ async def submit(ctx, link: str = None):
         print(f"📸 Submission by {ctx.author} | MsgID: {ctx.message.id}")
         att = attachments[0]
         now_iso = datetime.utcnow().isoformat()
-        # record submission
+        # record submission (including orig message for reply-votes)
         c.execute(
-            "INSERT INTO audio_submissions (user_id, filename, timestamp) VALUES (?, ?, ?)",
-            (str(ctx.author.id), att.filename, now_iso)
+            "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id) VALUES (?, ?, ?, ?)",
+            (str(ctx.author.id), att.filename, now_iso, ctx.message.id)
         )
         sub_id = c.lastrowid
         conn.commit()
@@ -334,8 +367,8 @@ async def submit(ctx, link: str = None):
         return
     now_iso = datetime.utcnow().isoformat()
     c.execute(
-        "INSERT INTO link_submissions (user_id, link, timestamp, tags) VALUES (?, ?, ?, '')",
-        (str(ctx.author.id), link, now_iso)
+        "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, '', ?)",
+        (str(ctx.author.id), link, now_iso, ctx.message.id)
     )
     sub_id = c.lastrowid
     conn.commit()
@@ -382,13 +415,19 @@ async def vote(ctx, score: int):
     sub = None
     ref = ctx.message.reference
     if ref and ref.message_id:
-        # lookup submission by stored message_id
-        c.execute("SELECT id FROM link_submissions WHERE message_id = ?", (ref.message_id,))
+        # lookup submission by bot repost message or original message
+        c.execute(
+            "SELECT id FROM link_submissions WHERE message_id = ? OR orig_message_id = ?",
+            (ref.message_id, ref.message_id)
+        )
         row = c.fetchone()
         if row:
             sub = ('link', row[0])
         else:
-            c.execute("SELECT id FROM audio_submissions WHERE message_id = ?", (ref.message_id,))
+            c.execute(
+                "SELECT id FROM audio_submissions WHERE message_id = ? OR orig_message_id = ?",
+                (ref.message_id, ref.message_id)
+            )
             row = c.fetchone()
             if row:
                 sub = ('audio', row[0])
@@ -508,11 +547,11 @@ async def on_message(message):
         await message.add_reaction("⬇️")
         print(f"📸 Passive submission by {message.author} | MsgID: {message.id}")
         att = message.attachments[0]
-        # Record submission metadata
+        # Record submission metadata (including orig message for reply-votes)
         now_iso = datetime.utcnow().isoformat()
         c.execute(
-            "INSERT INTO audio_submissions (user_id, filename, timestamp) VALUES (?, ?, ?)",
-            (uid, att.filename, now_iso)
+            "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id) VALUES (?, ?, ?, ?)",
+            (uid, att.filename, now_iso, message.id)
         )
         sub_id = c.lastrowid
         conn.commit()
@@ -541,8 +580,8 @@ async def on_message(message):
     if link:
         now_iso = datetime.utcnow().isoformat()
         c.execute(
-            "INSERT INTO link_submissions (user_id, link, timestamp, tags) VALUES (?, ?, ?, '')",
-            (uid, link, now_iso)
+            "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, '', ?)",
+            (uid, link, now_iso, message.id)
         )
         sub_id = c.lastrowid
         conn.commit()

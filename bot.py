@@ -247,7 +247,17 @@ async def post_daily_challenge():
     channel = bot.get_channel(CHALLENGE_CHANNEL_ID)
     if channel:
         prompt = await get_prompt()
-        await channel.send(f"🎯 **Daily Challenge**:\n{prompt}")
+        # Post daily prompt as an embed for richer formatting
+        embed = discord.Embed(
+            title="🎯 Daily Creative Challenge",
+            description=prompt,
+            color=discord.Color.blue(),
+        )
+        # Optional: set a banner image via env var or static URL
+        # banner = os.getenv('DAILY_BANNER_URL')
+        # if banner:
+        #     embed.set_image(url=banner)
+        await channel.send(embed=embed)
     else:
         print("⚠️ Challenge channel not found. Check CHALLENGE_CHANNEL_ID.")
 
@@ -260,10 +270,21 @@ async def post_daily_leaderboard():
             "SELECT user_id, points FROM rankings ORDER BY points DESC LIMIT 5"
         )
         top = c.fetchall()
-        text = "🏆 **Top 5 Creators:**\n" + "\n".join(
-            [f"{i+1}. <@{user}> – {pts} pts" for i, (user, pts) in enumerate(top)]
-        )
-        await channel.send(text)
+        if top:
+            embed = discord.Embed(
+                title="🏆 Top 5 Creators",
+                color=discord.Color.gold(),
+            )
+            # add each entry as a field
+            for i, (user, pts) in enumerate(top, start=1):
+                embed.add_field(
+                    name=f"#{i}",
+                    value=f"<@{user}> – {pts} pts",
+                    inline=False,
+                )
+            # Optional thumbnail or server icon
+            # embed.set_thumbnail(url=channel.guild.icon_url)
+            await channel.send(embed=embed)
     else:
         print("⚠️ Leaderboard channel not found. Check LEADERBOARD_CHANNEL_ID.")
 
@@ -280,8 +301,12 @@ async def post_vote_summary():
         if not rows:
             await channel.send("🏅 No votes have been cast yet.")
             return
-        lines = ["🏅 **Top 5 Voted Submissions:**"]
-        for i, (sub_id, total) in enumerate(rows):
+        embed = discord.Embed(
+            title="🏅 Top 5 Voted Submissions",
+            color=discord.Color.green(),
+        )
+        for i, (sub_id, total) in enumerate(rows, start=1):
+            # label from link or file
             c.execute("SELECT link FROM link_submissions WHERE id = ?", (sub_id,))
             r = c.fetchone()
             if r:
@@ -290,8 +315,14 @@ async def post_vote_summary():
                 c.execute("SELECT filename FROM audio_submissions WHERE id = ?", (sub_id,))
                 ar = c.fetchone()
                 label = ar[0] if ar else f"Submission #{sub_id}"
-            lines.append(f"{i+1}. {label} – {total} pts")
-        await channel.send("\n".join(lines))
+            embed.add_field(
+                name=f"{i}. {label}",
+                value=f"Total: {total} pts",
+                inline=False,
+            )
+        # Optional: add a thumbnail or footer
+        # embed.set_thumbnail(url=channel.guild.icon_url)
+        await channel.send(embed=embed)
     else:
         print("⚠️ Voting hall channel not found. Check VOTING_HALL_CHANNEL_ID.")
 

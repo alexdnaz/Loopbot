@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 # Ensure we're in the script directory and activate the virtualenv
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
 source bin/activate
 
-# Redirect all output (stdout/stderr) to discord.log
-exec >> discord.log 2>&1
+# Redirect all output (stdout/stderr) to the discord.log in script directory
+exec >> "$SCRIPT_DIR/discord.log" 2>&1
 
 echo "🔁 Starting Discord bot loop (caffeinated)..."
 

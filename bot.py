@@ -94,6 +94,32 @@ c.execute('''CREATE TABLE IF NOT EXISTS rankings (
 )''')
 conn.commit()
 
+# Tables for storing submissions and votes
+c.execute('''CREATE TABLE IF NOT EXISTS audio_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    filename TEXT,
+    timestamp TEXT,
+    thread_id INTEGER,
+    message_id INTEGER
+)''')
+c.execute('''CREATE TABLE IF NOT EXISTS link_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    link TEXT,
+    timestamp TEXT,
+    tags TEXT,
+    thread_id INTEGER,
+    message_id INTEGER
+)''')
+c.execute('''CREATE TABLE IF NOT EXISTS votes (
+    user_id TEXT,
+    submission_id INTEGER,
+    score INTEGER,
+    PRIMARY KEY(user_id, submission_id)
+)''')
+conn.commit()
+
 # Static fallback prompts (shuffled to vary order)
 _fallback_prompts = [
     "🌿 Create a loop inspired by nature's rhythm.",
@@ -239,7 +265,7 @@ async def how(ctx):
     how_text = (
         "👋 **How to use LoopBot:**\n"
         "1. Each morning, check the daily challenge in the designated channel or with `!postprompt`.\n"
-        "2. Create your work and submit it with `!submit <link>` or attach a media file (audio/image/video).\n"
+        "2. Create your work and submit it with `!submit <link>` or attach a file (audio/image/video/other).\n"
         "3. Earn 1 point per submission and bonus points for 👍 reactions.\n"
         "4. View your score with `!rank` and the top creators with `!leaderboard`.\n"
         "5. Administrators can manually post a prompt using `!postprompt`.\n"
@@ -249,7 +275,7 @@ async def how(ctx):
 
 @bot.command()
 async def submit(ctx, link: str = None):
-    """Accept a URL or an attached audio file (.mp3, .wav, .m4a) as a submission and award points."""
+    """Accept a URL or an attached file (audio/image/video/other) as a submission and award points."""
     # If user replied to a message, use that message's attachment or text
     ref = ctx.message.reference
     if ref and ref.message_id:
@@ -259,8 +285,20 @@ async def submit(ctx, link: str = None):
         link = None if attachments else ref_msg.content.strip()
     else:
         attachments = ctx.message.attachments
+    # If no attachment on this command and not replying, try to find recent self-posted attachments
+    if not attachments and not (ref and ref.message_id):
+        async for prev in ctx.channel.history(limit=10, before=ctx.message):
+            if prev.author == ctx.author and prev.attachments:
+                attachments = prev.attachments
+                # point reference to that message for logging consistency
+                ref = prev.reference or ctx.message.reference
+                break
     # Attachment path: accept any file (audio/image/video/etc.)
     if attachments:
+        # React to the user's attachment message for voting
+        await ctx.message.add_reaction("⬆️")
+        await ctx.message.add_reaction("⬇️")
+        print(f"📸 Submission by {ctx.author} | MsgID: {ctx.message.id}")
         att = attachments[0]
         now_iso = datetime.utcnow().isoformat()
         # record submission
@@ -397,6 +435,24 @@ async def postprompt_error(ctx, error):
     else:
         raise error
 
+@bot.command(name='postrules')
+@commands.has_permissions(administrator=True)
+async def postrules(ctx):
+    """Post the community guidelines into the rules channel."""
+    try:
+        with open('community_guidelines.md', encoding='utf-8') as f:
+            content = f.read()
+    except FileNotFoundError:
+        await ctx.send("❌ community_guidelines.md file not found.")
+        return
+    rules_chan = bot.get_channel(RULES_CHANNEL_ID)
+    if not rules_chan:
+        await ctx.send("❌ Rules channel not found. Check RULES_CHANNEL_ID.")
+        return
+    for chunk in [content[i:i+2000] for i in range(0, len(content), 2000)]:
+        await rules_chan.send(chunk)
+    await ctx.send(f"✅ Community guidelines posted in {rules_chan.mention}.")
+
 ## Welcome new members
 
 @bot.event
@@ -447,6 +503,10 @@ async def on_message(message):
     uid = str(message.author.id)
     # Attachment submission (auto-create thread and record)
     if message.attachments:
+        # Add vote reactions to the original message for attachments
+        await message.add_reaction("⬆️")
+        await message.add_reaction("⬇️")
+        print(f"📸 Passive submission by {message.author} | MsgID: {message.id}")
         att = message.attachments[0]
         # Record submission metadata
         now_iso = datetime.utcnow().isoformat()

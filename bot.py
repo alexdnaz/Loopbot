@@ -5,7 +5,7 @@ import sqlite3
 import itertools
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
-from datetime import datetime, time as dtime
+from datetime import datetime, time as dtime, timezone
 
 import openai
 import sys
@@ -241,7 +241,7 @@ async def on_ready():
         )
 
 ## Scheduled posts
-@tasks.loop(time=dtime(hour=DAILY_HOUR, minute=DAILY_MINUTE))
+@tasks.loop(time=dtime(hour=DAILY_HOUR, minute=DAILY_MINUTE, tzinfo=timezone.utc))
 async def post_daily_challenge():
     """Post the daily creative prompt at the configured time."""
     channel = bot.get_channel(CHALLENGE_CHANNEL_ID)
@@ -261,7 +261,7 @@ async def post_daily_challenge():
     else:
         print("⚠️ Challenge channel not found. Check CHALLENGE_CHANNEL_ID.")
 
-@tasks.loop(time=dtime(hour=LEADERBOARD_HOUR, minute=LEADERBOARD_MINUTE))
+@tasks.loop(time=dtime(hour=LEADERBOARD_HOUR, minute=LEADERBOARD_MINUTE, tzinfo=timezone.utc))
 async def post_daily_leaderboard():
     """Post the daily top-5 leaderboard at the configured time."""
     channel = bot.get_channel(LEADERBOARD_CHANNEL_ID)
@@ -288,7 +288,7 @@ async def post_daily_leaderboard():
     else:
         print("⚠️ Leaderboard channel not found. Check LEADERBOARD_CHANNEL_ID.")
 
-@tasks.loop(time=dtime(hour=VOTE_SUMMARY_HOUR, minute=VOTE_SUMMARY_MINUTE))
+@tasks.loop(time=dtime(hour=VOTE_SUMMARY_HOUR, minute=VOTE_SUMMARY_MINUTE, tzinfo=timezone.utc))
 async def post_vote_summary():
     """Post a daily summary of top-voted submissions in the voting-hall channel."""
     channel = bot.get_channel(VOTING_HALL_CHANNEL_ID)

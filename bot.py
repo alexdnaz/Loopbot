@@ -332,7 +332,7 @@ async def ping(ctx):
 @bot.command(name='commands')
 async def list_commands(ctx):
     await ctx.send(
-        "📜 Commands: `!ping`, `!how`, `!submit <link>` or attach a file, `!vote <1-10>`, `!rank`, `!leaderboard`, `!postprompt`, `!chat <msg>`"
+        "📜 Commands: `!ping`, `!how`, `!submit <link>` or attach a file, `!vote <1-10>`, `!rank`, `!leaderboard`, `!postprompt`, `!chat <msg>`, `!search #tag`"
     )
 
 @bot.command(name='how')

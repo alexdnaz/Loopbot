@@ -591,7 +591,8 @@ async def chat(ctx, *, prompt: str = None):
         return await ctx.send("❌ Please provide a message for the AI, e.g. `!chat Hello! How are you?`")
     try:
         resp = await openai.ChatCompletion.acreate(
-            model="gpt-4o",
+            # Use the free tier model
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful AI assistant."},
                 {"role": "user", "content": prompt},

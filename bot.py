@@ -411,9 +411,9 @@ async def submit(ctx, link: str = None):
         conn.commit()
         await ctx.send(f"✅ Audio submission accepted! You now have {points} points.")
         return
-    # URL submission path
-    if not link:
-        await ctx.send("❌ Please provide a link or attach a file.")
+    # URL submission path: validate link is non-empty and not a bot command
+    if not link or link.strip().startswith(bot.command_prefix):
+        await ctx.send("❌ Please provide a valid URL (not a bot command) or attach a file.")
         return
     now_iso = datetime.utcnow().isoformat()
     c.execute(

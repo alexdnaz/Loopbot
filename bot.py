@@ -584,6 +584,27 @@ async def search(ctx, tag: str = None):
     out = results[:10]
     await ctx.send(f"🔍 Search results for #{tag_clean}:\n" + "\n".join(out))
 
+@bot.command(name='chat')
+async def chat(ctx, *, prompt: str = None):
+    """Chat with the AI assistant. Usage: `!chat your question here`"""
+    if not prompt:
+        return await ctx.send("❌ Please provide a message for the AI, e.g. `!chat Hello! How are you?`")
+    try:
+        resp = await openai.ChatCompletion.acreate(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful AI assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=150,
+            temperature=0.7,
+        )
+        reply = resp.choices[0].message.content.strip()
+        await ctx.send(reply)
+    except Exception as e:
+        await ctx.send("⚠️ AI request failed. Please try again later.")
+        print(f"[AI ERROR] {e}")
+
 ## Welcome new members
 
 @bot.event

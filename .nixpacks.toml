@@ -1,0 +1,3 @@
+[project]
+# Start command for Nixpacks (used by Railway.app) to launch the bot.
+start = "bash loopbot.sh"

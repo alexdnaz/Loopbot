@@ -91,10 +91,6 @@ HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
 # Pick up a persistent volume path if provided (Railway, Docker, etc.), else use cwd; override with DB_PATH.
 persistent_dir = os.getenv('RAILWAY_PERSISTENT_DIR') or os.getenv('DATA_DIR')
 explicit_db = os.getenv('DB_PATH')
-if not persistent_dir and not explicit_db:
-    print("❌ ERROR: No persistent storage detected.\n"
-          "Please mount a volume at /data or set the DB_PATH environment variable.")
-    sys.exit(1)
 if persistent_dir:
     # Ensure the persistent directory exists
     os.makedirs(persistent_dir, exist_ok=True)
@@ -109,15 +105,11 @@ if persistent_dir:
         )
     DB_PATH = explicit_db or vol_file
 else:
-    # Use explicit DB_PATH (must be configured) when no volume is mounted
-    DB_PATH = explicit_db
-# Ensure the directory for the database file exists (even if using /tmp or a mount)
-db_dir = os.path.dirname(DB_PATH)
-if db_dir and not os.path.exists(db_dir):
-    os.makedirs(db_dir, exist_ok=True)
-c_dir = os.path.dirname(DB_PATH)
-if c_dir and not os.path.exists(c_dir):
-    os.makedirs(c_dir, exist_ok=True)
+    # Fallback to tmp directory or explicit path
+    DB_PATH = explicit_db or '/tmp/rankings.db'
+
+# Ensure parent directory exists before opening the SQLite database
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 conn = sqlite3.connect(DB_PATH)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS rankings (

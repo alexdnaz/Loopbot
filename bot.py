@@ -739,4 +739,11 @@ async def on_message(message):
         await chan.send("✅ Submission accepted! Voting is now open.")
 
 # Run bot
+@bot.event
+async def on_command_error(ctx, error):
+    """Silence unknown commands instead of logging exceptions."""
+    if isinstance(error, commands.CommandNotFound):
+        return
+    raise error
+
 bot.run(TOKEN)

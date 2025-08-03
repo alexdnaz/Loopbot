@@ -8,12 +8,7 @@ source bin/activate
 # Redirect all output (stdout/stderr) to discord.log and also display in console
 exec > >(tee -a "$SCRIPT_DIR/discord.log") 2>&1
 
-echo "🔁 Starting Discord bot loop (caffeinated)..."
-
-# Prevent system sleep while the bot is running
-caffeinate -dimsu &
-CAFFEINATE_PID=$!
-trap "echo '🛑 Stopping caffeinate'; kill $CAFFEINATE_PID" EXIT
+echo "🔁 Starting Discord bot loop..."
 
 while true; do
     echo "🚀 Launching bot.py..."

@@ -87,9 +87,14 @@ WELCOME_CHANNEL_ID = 1393807671525773322     # welcome
 HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
 
 ## SQLite DB setup
-# Default to a writable file in the current working directory (can override via DB_PATH env var)
-default_db = os.path.join(os.getcwd(), 'rankings.db')
-DB_PATH = os.getenv('DB_PATH', default_db)
+## SQLite DB setup
+# Pick up a persistent volume path if provided (Railway, Docker, etc.), else use cwd; override with DB_PATH.
+persistent_dir = os.getenv('RAILWAY_PERSISTENT_DIR') or os.getenv('DATA_DIR')
+if persistent_dir:
+    default_db = os.getenv('DB_PATH', os.path.join(persistent_dir, 'rankings.db'))
+else:
+    default_db = os.getenv('DB_PATH', os.path.join(os.getcwd(), 'rankings.db'))
+DB_PATH = default_db
 conn = sqlite3.connect(DB_PATH)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS rankings (

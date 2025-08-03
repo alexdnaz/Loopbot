@@ -24,5 +24,10 @@ Steps:
 4. In the Railway dashboard, add your environment variables:
    - `DISCORD_BOT_TOKEN` (required)
    - `OPENAI_API_KEY` (required for AI prompts)
-   - Any other optional vars (e.g. `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.)
+   - (Optional) `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.
+5. **Persisting the SQLite database:**
+   - Railway containers are ephemeral, so mount a Persistent Volume at `/data`.
+   - In the Railway Dashboard, add a Volume and mount it to `/data`.
+   - The bot auto-detects `RAILWAY_PERSISTENT_DIR` (or `DATA_DIR`) for `rankings.db`.
+     Your DB file will live at `/data/rankings.db` and survive restarts.
 5. Deploy – LoopBot will stay online continuously.

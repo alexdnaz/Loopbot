@@ -91,7 +91,16 @@ HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
 # Pick up a persistent volume path if provided (Railway, Docker, etc.), else use cwd; override with DB_PATH.
 persistent_dir = os.getenv('RAILWAY_PERSISTENT_DIR') or os.getenv('DATA_DIR')
 if persistent_dir:
-    default_db = os.getenv('DB_PATH', os.path.join(persistent_dir, 'rankings.db'))
+    # Seed the persistent volume from a bundled local backup on first run
+    vol_file = os.path.join(persistent_dir, 'rankings.db')
+    if not os.path.exists(vol_file) and os.path.exists(os.path.join(os.getcwd(), 'rankings.db')):
+        import shutil
+
+        shutil.copy(
+            os.path.join(os.getcwd(), 'rankings.db'),
+            vol_file,
+        )
+    default_db = os.getenv('DB_PATH', vol_file)
 else:
     default_db = os.getenv('DB_PATH', os.path.join(os.getcwd(), 'rankings.db'))
 DB_PATH = default_db

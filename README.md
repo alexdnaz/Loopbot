@@ -30,4 +30,7 @@ Steps:
    - In the Railway Dashboard, add a Volume and mount it to `/data`.
    - The bot auto-detects `RAILWAY_PERSISTENT_DIR` (or `DATA_DIR`) for `rankings.db`.
      Your DB file will live at `/data/rankings.db` and survive restarts.
+   - **Restoring a backup:** If you have an existing `rankings.db` locally, commit it to your repo
+     at the project root before deploying. On first run, the bot will copy that file into
+     the volume so your previous points and leaderboard are preserved.
 5. Deploy – LoopBot will stay online continuously.

@@ -400,9 +400,18 @@ async def submit(ctx, link: str = None):
         )
         sub_id = c.lastrowid
         conn.commit()
+        # Award 1 submission point
+        c.execute(
+            "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
+            (str(ctx.author.id), str(ctx.author.id), 1)
+        )
+        conn.commit()
         sub_ch = bot.get_channel(VOTING_HALL_CHANNEL_ID)
         if sub_ch:
             sent = await sub_ch.send(f"📥 **File Submission from {ctx.author.mention}:**", file=await att.to_file())
+            # Pre-add voting reactions for neutral starting point
+            await sent.add_reaction("👍")
+            await sent.add_reaction("👎")
         # Only record message ID for voting
         c.execute(
             "UPDATE audio_submissions SET message_id = ? WHERE id = ?",
@@ -429,9 +438,18 @@ async def submit(ctx, link: str = None):
     )
     sub_id = c.lastrowid
     conn.commit()
+    # Award 1 submission point
+    c.execute(
+        "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
+        (str(ctx.author.id), str(ctx.author.id), 1)
+    )
+    conn.commit()
     sub_ch = bot.get_channel(VOTING_HALL_CHANNEL_ID)
     if sub_ch:
         sent = await sub_ch.send(f"📥 **Link Submission from {ctx.author.mention}:** {link}")  # explicit_link preserved
+        # Pre-add voting reactions for neutral starting point
+        await sent.add_reaction("👍")
+        await sent.add_reaction("👎")
         # Only record message ID for voting
         c.execute(
             "UPDATE link_submissions SET message_id = ? WHERE id = ?",
@@ -701,13 +719,21 @@ async def on_message(message):
         )
         sub_id = c.lastrowid
         conn.commit()
-        # Post and thread; no immediate points, voting only
+        # Award 1 submission point
+        c.execute(
+            "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
+            (uid, uid, 1)
+        )
+        conn.commit()
+        # Post; no immediate points, voting only
         chan = bot.get_channel(VOTING_HALL_CHANNEL_ID)
         sent = await chan.send(f"📥 **File Submission from {message.author.mention}:**", file=await att.to_file())
-        thread = await sent.create_thread(name=f"{message.author.name}'s submission")
+        # Pre-add voting reactions for neutral starting point
+        await sent.add_reaction("👍")
+        await sent.add_reaction("👎")
         c.execute(
-            "UPDATE audio_submissions SET thread_id = ?, message_id = ? WHERE id = ?",
-            (thread.id, sent.id, sub_id)
+            "UPDATE audio_submissions SET message_id = ? WHERE id = ?",
+            (sent.id, sub_id)
         )
         conn.commit()
         await chan.send("✅ Submission accepted! Voting is now open.")
@@ -727,12 +753,20 @@ async def on_message(message):
         )
         sub_id = c.lastrowid
         conn.commit()
+        # Award 1 submission point
+        c.execute(
+            "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
+            (uid, uid, 1)
+        )
+        conn.commit()
         chan = bot.get_channel(VOTING_HALL_CHANNEL_ID)
         sent = await chan.send(f"📥 **Link Submission from {message.author.mention}:** {url}")
-        thread = await sent.create_thread(name=f"{message.author.name}'s submission")
+        # Pre-add voting reactions for neutral starting point
+        await sent.add_reaction("👍")
+        await sent.add_reaction("👎")
         c.execute(
-            "UPDATE link_submissions SET thread_id = ?, message_id = ? WHERE id = ?",
-            (thread.id, sent.id, sub_id)
+            "UPDATE link_submissions SET message_id = ? WHERE id = ?",
+            (sent.id, sub_id)
         )
         conn.commit()
         # Confirm submission; voting via reactions only

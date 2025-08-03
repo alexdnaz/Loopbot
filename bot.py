@@ -240,13 +240,17 @@ async def post_daily_leaderboard():
     """Post the daily top-5 leaderboard at the configured time."""
     channel = bot.get_channel(LEADERBOARD_CHANNEL_ID)
     if channel:
+        # Exclude the bot user from the leaderboard
+        bot_id = str(bot.user.id)
         c.execute(
-            "SELECT user_id, points FROM rankings ORDER BY points DESC LIMIT 5"
+            "SELECT user_id, points FROM rankings WHERE user_id != ? "
+            "ORDER BY points DESC LIMIT 5",
+            (bot_id,)
         )
         top = c.fetchall()
         if top:
             embed = discord.Embed(
-                title="🏆 Top 5 Creators",
+                title="🏆 Top 5 Creators:",
                 color=discord.Color.gold(),
             )
             # add each entry as a field
@@ -421,7 +425,13 @@ async def rank(ctx):
 
 @bot.command()
 async def leaderboard(ctx):
-    c.execute("SELECT user_id, points FROM rankings ORDER BY points DESC LIMIT 5")
+    # Exclude the bot user from the public leaderboard
+    bot_id = str(bot.user.id)
+    c.execute(
+        "SELECT user_id, points FROM rankings WHERE user_id != ? "
+        "ORDER BY points DESC LIMIT 5",
+        (bot_id,)
+    )
     top = c.fetchall()
     text = "🏆 **Top 5 Creators:**\n" + "\n".join(
         [f"{i+1}. <@{user}> – {pts} pts" for i, (user, pts) in enumerate(top)]

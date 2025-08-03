@@ -117,18 +117,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS rankings (
     points INTEGER
 )''')
 conn.commit()
-# Add tags and orig_message_id columns to existing tables if missing
-try:
-    c.execute('ALTER TABLE audio_submissions ADD COLUMN tags TEXT')
-    c.execute('ALTER TABLE link_submissions ADD COLUMN tags TEXT')
-    c.execute('ALTER TABLE audio_submissions ADD COLUMN orig_message_id INTEGER')
-    c.execute('ALTER TABLE link_submissions ADD COLUMN orig_message_id INTEGER')
-    c.execute('ALTER TABLE votes ADD COLUMN timestamp TEXT')
-    conn.commit()
-except sqlite3.OperationalError:
-    pass
 
-# Tables for storing submissions and votes
+# Create submissions and votes tables (include tags/orig_message_id/timestamp columns)
 c.execute('''CREATE TABLE IF NOT EXISTS audio_submissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT,
@@ -136,7 +126,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS audio_submissions (
     timestamp TEXT,
     thread_id INTEGER,
     message_id INTEGER,
-    orig_message_id INTEGER
+    orig_message_id INTEGER,
+    tags TEXT
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS link_submissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,6 +147,17 @@ c.execute('''CREATE TABLE IF NOT EXISTS votes (
     PRIMARY KEY(user_id, submission_id)
 )''')
 conn.commit()
+
+# Migrate existing tables to add missing columns if needed
+try:
+    c.execute('ALTER TABLE audio_submissions ADD COLUMN tags TEXT')
+    c.execute('ALTER TABLE audio_submissions ADD COLUMN orig_message_id INTEGER')
+    c.execute('ALTER TABLE link_submissions ADD COLUMN tags TEXT')
+    c.execute('ALTER TABLE link_submissions ADD COLUMN orig_message_id INTEGER')
+    c.execute('ALTER TABLE votes ADD COLUMN timestamp TEXT')
+    conn.commit()
+except sqlite3.OperationalError:
+    pass
 
 # Static fallback prompts (shuffled to vary order)
 _fallback_prompts = [
@@ -429,7 +431,7 @@ async def submit(ctx, link: str = None):
     conn.commit()
     sub_ch = bot.get_channel(VOTING_HALL_CHANNEL_ID)
     if sub_ch:
-        sent = await sub_ch.send(f"📥 **Link Submission from {ctx.author.mention}:** {link}")
+        sent = await sub_ch.send(f"📥 **Link Submission from {ctx.author.mention}:** {link}")  # explicit_link preserved
         # Only record message ID for voting
         c.execute(
             "UPDATE link_submissions SET message_id = ? WHERE id = ?",
@@ -726,7 +728,7 @@ async def on_message(message):
         sub_id = c.lastrowid
         conn.commit()
         chan = bot.get_channel(VOTING_HALL_CHANNEL_ID)
-        sent = await chan.send(f"📥 **Link Submission from {message.author.mention}:** {link}")
+        sent = await chan.send(f"📥 **Link Submission from {message.author.mention}:** {url}")
         thread = await sent.create_thread(name=f"{message.author.name}'s submission")
         c.execute(
             "UPDATE link_submissions SET thread_id = ?, message_id = ? WHERE id = ?",

@@ -33,5 +33,6 @@ Steps:
    - **Restoring a backup:** If you have an existing `rankings.db` locally, commit it to your repo
      at the project root before deploying. On first run, the bot will copy that file into
      the volume so your previous points and leaderboard are preserved.
-   - **Fallback:** If no volume is mounted, the bot will store the DB at `/tmp/rankings.db`.
+   - **Important:** The bot now requires either a mounted volume at `/data` or an explicit `DB_PATH` env var.
+     It will exit with an error if neither is provided.
 5. Deploy – LoopBot will stay online continuously.

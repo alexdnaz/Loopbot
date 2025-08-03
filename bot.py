@@ -107,6 +107,10 @@ else:
     # Fallback to tmp if no volume mounted
     default_db = os.getenv('DB_PATH', '/tmp/rankings.db')
 DB_PATH = default_db
+# Ensure the directory for the database file exists (even if using /tmp or a mount)
+db_dir = os.path.dirname(DB_PATH)
+if db_dir and not os.path.exists(db_dir):
+    os.makedirs(db_dir, exist_ok=True)
 conn = sqlite3.connect(DB_PATH)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS rankings (

@@ -5,7 +5,7 @@ import sqlite3
 import itertools
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
-from datetime import datetime, time as dtime, timezone
+from datetime import datetime, time as dtime, timezone, timedelta
 
 import openai
 import sys
@@ -100,6 +100,7 @@ try:
     c.execute('ALTER TABLE link_submissions ADD COLUMN tags TEXT')
     c.execute('ALTER TABLE audio_submissions ADD COLUMN orig_message_id INTEGER')
     c.execute('ALTER TABLE link_submissions ADD COLUMN orig_message_id INTEGER')
+    c.execute('ALTER TABLE votes ADD COLUMN timestamp TEXT')
     conn.commit()
 except sqlite3.OperationalError:
     pass
@@ -128,6 +129,7 @@ c.execute('''CREATE TABLE IF NOT EXISTS votes (
     user_id TEXT,
     submission_id INTEGER,
     score INTEGER,
+    timestamp TEXT,
     PRIMARY KEY(user_id, submission_id)
 )''')
 conn.commit()
@@ -265,16 +267,21 @@ async def post_vote_summary():
     """Post a daily summary of top-voted submissions in the voting-hall channel."""
     channel = bot.get_channel(VOTING_HALL_CHANNEL_ID)
     if channel:
+        # Trending = votes cast in the last 24 hours
+        since = datetime.utcnow() - timedelta(days=1)
+        threshold = since.isoformat()
         c.execute(
             "SELECT submission_id, SUM(score) AS total FROM votes "
-            "GROUP BY submission_id ORDER BY total DESC LIMIT 5"
+            "WHERE timestamp >= ? GROUP BY submission_id "
+            "ORDER BY total DESC LIMIT 5",
+            (threshold,)
         )
         rows = c.fetchall()
         if not rows:
             await channel.send("🏅 No votes have been cast yet.")
             return
         embed = discord.Embed(
-            title="🏅 Top 5 Voted Submissions",
+            title="📈 Trending: Top 5 in last 24h",
             color=discord.Color.green(),
         )
         for i, (sub_id, total) in enumerate(rows, start=1):
@@ -289,7 +296,7 @@ async def post_vote_summary():
                 label = ar[0] if ar else f"Submission #{sub_id}"
             embed.add_field(
                 name=f"{i}. {label}",
-                value=f"Total: {total} pts",
+                value=f"Total: {total} Votes",
                 inline=False,
             )
         # Optional: add a thumbnail or footer
@@ -463,10 +470,11 @@ async def vote(ctx, score: int):
         return
     sub_id = sub[1]
     uid = str(ctx.author.id)
+    now_iso = datetime.utcnow().isoformat()
     try:
         c.execute(
-            "INSERT INTO votes (user_id, submission_id, score) VALUES (?, ?, ?)",
-            (uid, sub_id, score)
+            "INSERT INTO votes (user_id, submission_id, score, timestamp) VALUES (?, ?, ?, ?)",
+            (uid, sub_id, score, now_iso)
         )
         conn.commit()
         await ctx.send(f"✅ Your vote of {score} has been recorded.")

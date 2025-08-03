@@ -473,8 +473,23 @@ async def vote(ctx, score: int):
                 row = c.fetchone()
                 sub = ('audio', row[0]) if row else None
     if not sub:
-        await ctx.send("❌ You can only vote by replying to a submission or inside its thread.")
-        return
+        # Auto-register any replied-to message as a link submission for voting
+        ref = ctx.message.reference
+        if ref and ref.message_id:
+            ref_chan = bot.get_channel(ref.channel_id) or ctx.channel
+            ref_msg = await ref_chan.fetch_message(ref.message_id)
+            now_iso = datetime.utcnow().isoformat()
+            # Use a discord link to the original message
+            link = f"https://discord.com/channels/{ctx.guild.id}/{ref_msg.channel.id}/{ref_msg.id}"
+            c.execute(
+                "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, ?, ?)",
+                (str(ref_msg.author.id), link, now_iso, "", ref_msg.id),
+            )
+            sub = ('link', c.lastrowid)
+            conn.commit()
+        else:
+            await ctx.send("❌ You can only vote by replying to a submission or inside its thread.")
+            return
     if not 1 <= score <= 10:
         await ctx.send("❌ Please vote with a score between 1 and 10.")
         return

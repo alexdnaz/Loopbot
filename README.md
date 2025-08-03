@@ -21,5 +21,8 @@ Steps:
 1. Create a new Python service on Railway and connect your GitHub repository.
 2. Railway will read `requirements.txt` and install dependencies automatically.
 3. The `Procfile` tells Railway to start LoopBot as a background worker.
-4. In the Railway dashboard, add your environment variables (e.g. `DISCORD_BOT_TOKEN`, `OPENAI_API_KEY`, etc.).
+4. In the Railway dashboard, add your environment variables:
+   - `DISCORD_BOT_TOKEN` (required)
+   - `OPENAI_API_KEY` (required for AI prompts)
+   - Any other optional vars (e.g. `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.)
 5. Deploy – LoopBot will stay online continuously.

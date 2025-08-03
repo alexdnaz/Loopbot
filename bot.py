@@ -15,6 +15,9 @@ import random
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+if not TOKEN:
+    print("❌ ERROR: DISCORD_BOT_TOKEN environment variable is missing.")
+    sys.exit(1)
 openai.api_key = os.getenv('OPENAI_API_KEY')
 # Determine if we're running in single-run mode (cron) vs. normal loop
 _RUN_MODE = sys.argv[1] if len(sys.argv) > 1 else None

@@ -90,6 +90,11 @@ HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
 ## SQLite DB setup
 # Pick up a persistent volume path if provided (Railway, Docker, etc.), else use cwd; override with DB_PATH.
 persistent_dir = os.getenv('RAILWAY_PERSISTENT_DIR') or os.getenv('DATA_DIR')
+explicit_db = os.getenv('DB_PATH')
+if not persistent_dir and not explicit_db:
+    print("❌ ERROR: No persistent storage detected.\n"
+          "Please mount a volume at /data or set the DB_PATH environment variable.")
+    sys.exit(1)
 if persistent_dir:
     # Ensure the persistent directory exists
     os.makedirs(persistent_dir, exist_ok=True)
@@ -102,15 +107,17 @@ if persistent_dir:
             os.path.join(os.getcwd(), 'rankings.db'),
             vol_file,
         )
-    default_db = os.getenv('DB_PATH', vol_file)
+    DB_PATH = explicit_db or vol_file
 else:
-    # Fallback to tmp if no volume mounted
-    default_db = os.getenv('DB_PATH', '/tmp/rankings.db')
-DB_PATH = default_db
+    # Use explicit DB_PATH (must be configured) when no volume is mounted
+    DB_PATH = explicit_db
 # Ensure the directory for the database file exists (even if using /tmp or a mount)
 db_dir = os.path.dirname(DB_PATH)
 if db_dir and not os.path.exists(db_dir):
     os.makedirs(db_dir, exist_ok=True)
+c_dir = os.path.dirname(DB_PATH)
+if c_dir and not os.path.exists(c_dir):
+    os.makedirs(c_dir, exist_ok=True)
 conn = sqlite3.connect(DB_PATH)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS rankings (
@@ -296,7 +303,7 @@ async def post_vote_summary():
     channel = bot.get_channel(VOTING_HALL_CHANNEL_ID)
     if channel:
         # Trending = votes cast in the last 24 hours
-        since = datetime.utcnow() - timedelta(days=1)
+        since = datetime.now(timezone.utc) - timedelta(days=1)
         threshold = since.isoformat()
         c.execute(
             "SELECT submission_id, SUM(score) AS total FROM votes "
@@ -463,8 +470,10 @@ async def leaderboard(ctx):
     await ctx.send(text)
 
 @bot.command(name='vote')
-async def vote(ctx, score: int):
+async def vote(ctx, score: int = None):
     """Cast a 1–10 vote for the submission associated with this thread."""
+    if score is None:
+        return await ctx.send("❌ Please provide a vote score, e.g. `!vote 7`.")
     # Allow voting by replying to the original submission message
     sub = None
     ref = ctx.message.reference
@@ -502,8 +511,8 @@ async def vote(ctx, score: int):
         if ref and ref.message_id:
             ref_chan = bot.get_channel(ref.channel_id) or ctx.channel
             ref_msg = await ref_chan.fetch_message(ref.message_id)
-            now_iso = datetime.utcnow().isoformat()
-            # Use a discord link to the original message
+            now_iso = datetime.now(timezone.utc).isoformat()
+            # Use a Discord link to the original message
             link = f"https://discord.com/channels/{ctx.guild.id}/{ref_msg.channel.id}/{ref_msg.id}"
             c.execute(
                 "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, ?, ?)",
@@ -519,11 +528,11 @@ async def vote(ctx, score: int):
         return
     sub_id = sub[1]
     uid = str(ctx.author.id)
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
     try:
         c.execute(
             "INSERT INTO votes (user_id, submission_id, score, timestamp) VALUES (?, ?, ?, ?)",
-            (uid, sub_id, score, now_iso)
+            (uid, sub_id, score, now_iso),
         )
         conn.commit()
         await ctx.send(f"✅ Your vote of {score} has been recorded.")

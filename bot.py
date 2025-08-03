@@ -104,7 +104,8 @@ if persistent_dir:
         )
     default_db = os.getenv('DB_PATH', vol_file)
 else:
-    default_db = os.getenv('DB_PATH', os.path.join(os.getcwd(), 'rankings.db'))
+    # Fallback to tmp if no volume mounted
+    default_db = os.getenv('DB_PATH', '/tmp/rankings.db')
 DB_PATH = default_db
 conn = sqlite3.connect(DB_PATH)
 c = conn.cursor()

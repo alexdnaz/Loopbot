@@ -83,49 +83,21 @@ LEADERBOARD_CHANNEL_ID = 1393810922396585984 # leaderboard
 WELCOME_CHANNEL_ID = 1393807671525773322     # welcome
 HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
 
-# SQLite DB setup
-conn = sqlite3.connect('rankings.db')
+## SQLite DB setup
+# Default to a writable file in the current working directory (can override via DB_PATH env var)
+default_db = os.path.join(os.getcwd(), 'rankings.db')
+DB_PATH = os.getenv('DB_PATH', default_db)
+conn = sqlite3.connect(DB_PATH)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS rankings (
     user_id TEXT PRIMARY KEY,
     points INTEGER
 )''')
 conn.commit()
-# Ensure submissions tables have tags field for tag-based search
+# Add tags and orig_message_id columns to existing tables if missing
 try:
     c.execute('ALTER TABLE audio_submissions ADD COLUMN tags TEXT')
     c.execute('ALTER TABLE link_submissions ADD COLUMN tags TEXT')
-    conn.commit()
-except sqlite3.OperationalError:
-    pass
-
-# Tables for storing submissions and votes
-c.execute('''CREATE TABLE IF NOT EXISTS audio_submissions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT,
-    filename TEXT,
-    timestamp TEXT,
-    thread_id INTEGER,
-    message_id INTEGER
-)''')
-c.execute('''CREATE TABLE IF NOT EXISTS link_submissions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT,
-    link TEXT,
-    timestamp TEXT,
-    tags TEXT,
-    thread_id INTEGER,
-    message_id INTEGER
-)''')
-c.execute('''CREATE TABLE IF NOT EXISTS votes (
-    user_id TEXT,
-    submission_id INTEGER,
-    score INTEGER,
-    PRIMARY KEY(user_id, submission_id)
-)''')
-conn.commit()
-# Add original message ID columns if missing (for reply-based voting)
-try:
     c.execute('ALTER TABLE audio_submissions ADD COLUMN orig_message_id INTEGER')
     c.execute('ALTER TABLE link_submissions ADD COLUMN orig_message_id INTEGER')
     conn.commit()
@@ -139,7 +111,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS audio_submissions (
     filename TEXT,
     timestamp TEXT,
     thread_id INTEGER,
-    message_id INTEGER
+    message_id INTEGER,
+    orig_message_id INTEGER
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS link_submissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -148,7 +121,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS link_submissions (
     timestamp TEXT,
     tags TEXT,
     thread_id INTEGER,
-    message_id INTEGER
+    message_id INTEGER,
+    orig_message_id INTEGER
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS votes (
     user_id TEXT,
@@ -375,41 +349,32 @@ async def submit(ctx, link: str = None):
                 break
     # Attachment path: accept any file (audio/image/video/etc.)
     if attachments:
-        # React to the user's attachment message for voting
-        await ctx.message.add_reaction("⬆️")
-        await ctx.message.add_reaction("⬇️")
+        # React to the user's attachment message for voting (thumbs-up/thumbs-down)
+        await ctx.message.add_reaction("👍")
+        await ctx.message.add_reaction("👎")
         print(f"📸 Submission by {ctx.author} | MsgID: {ctx.message.id}")
         att = attachments[0]
         now_iso = datetime.utcnow().isoformat()
-        # extract tags from command content
+        # record submission (tags + orig message for reply-votes)
         tag_list = [w.lstrip('#') for w in ctx.message.content.split() if w.startswith('#')]
         tags = ' '.join(tag_list)
-        # record submission (tags + orig message for reply-votes)
         c.execute(
             "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id, tags) VALUES (?, ?, ?, ?, ?)",
             (str(ctx.author.id), att.filename, now_iso, ctx.message.id, tags)
         )
         sub_id = c.lastrowid
         conn.commit()
-        # award point
-        uid = str(ctx.author.id)
-        c.execute(
-            "INSERT OR REPLACE INTO rankings (user_id, points) "
-            "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
-            (uid, uid),
-        )
-        conn.commit()
-        points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
-        sub_ch = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
+        sub_ch = bot.get_channel(VOTING_HALL_CHANNEL_ID)
         if sub_ch:
             sent = await sub_ch.send(f"📥 **File Submission from {ctx.author.mention}:**", file=await att.to_file())
-        # Skip auto-creating threads; only record message ID for voting
+        # Only record message ID for voting
         c.execute(
             "UPDATE audio_submissions SET message_id = ? WHERE id = ?",
             (sent.id, sub_id)
         )
         conn.commit()
-        await ctx.send(f"✅ Audio submission accepted! You now have {points} points.")
+        # Confirm submission; voting via reactions only
+        await ctx.send("✅ File submission accepted! Voting is now open.")
         return
     # URL submission path: validate link is non-empty and not a bot command
     if not link or link.strip().startswith(bot.command_prefix):
@@ -428,25 +393,17 @@ async def submit(ctx, link: str = None):
     )
     sub_id = c.lastrowid
     conn.commit()
-    # award point
-    uid = str(ctx.author.id)
-    c.execute(
-        "INSERT OR REPLACE INTO rankings (user_id, points) "
-        "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
-        (uid, uid),
-    )
-    conn.commit()
-    points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
-    sub_ch = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
+    sub_ch = bot.get_channel(VOTING_HALL_CHANNEL_ID)
     if sub_ch:
         sent = await sub_ch.send(f"📥 **Link Submission from {ctx.author.mention}:** {link}")
-        # Skip auto-creating threads; only record message ID for voting
+        # Only record message ID for voting
         c.execute(
             "UPDATE link_submissions SET message_id = ? WHERE id = ?",
             (sent.id, sub_id)
         )
         conn.commit()
-    await ctx.send(f"✅ Submission accepted! You now have {points} points.")
+    # Confirm submission; voting via reactions only
+    await ctx.send("✅ Link submission accepted! Voting is now open.")
 
 @bot.command()
 async def rank(ctx):
@@ -625,19 +582,32 @@ async def on_member_join(member):
 # Reaction-based voting
 @bot.event
 async def on_raw_reaction_add(payload):
-    if payload.channel_id == SUBMISSIONS_CHANNEL_ID and payload.emoji.name == "👍":
-        user_id = str(payload.user_id)
-        c.execute(
-            "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
-            (user_id, user_id),
-        )
-        conn.commit()
-
-        guild = bot.get_guild(payload.guild_id)
-        member = guild.get_member(payload.user_id)
-        channel = bot.get_channel(payload.channel_id)
-        if channel and member:
-            await channel.send(f"🗳️ {member.mention} voted! +1 point.")
+    """Handle up/down/thumbs-up/thumbs-down voting reactions in submissions channel."""
+    # ignore reactions outside submissions or added by the bot itself
+    if payload.channel_id != SUBMISSIONS_CHANNEL_ID or payload.user_id == bot.user.id:
+        return
+    user_id = str(payload.user_id)
+    guild = bot.get_guild(payload.guild_id)
+    member = guild.get_member(payload.user_id)
+    channel = bot.get_channel(payload.channel_id)
+    # Thumbs-up adds a point, thumbs-down removes a point
+    if payload.emoji.name == "👍":
+        change = 1
+        reaction_msg = "+1 point"
+    elif payload.emoji.name == "👎":
+        change = -1
+        reaction_msg = "-1 point"
+    else:
+        return
+    # Update ranking
+    c.execute(
+        "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
+        (user_id, user_id, change),
+    )
+    conn.commit()
+    # Notify
+    if channel and member:
+        await channel.send(f"🗳️ {member.mention} voted! {reaction_msg}.")
 
 # Allow raw file or link posts in submissions channel as submissions
 @bot.event
@@ -656,14 +626,13 @@ async def on_message(message):
     uid = str(message.author.id)
     # Attachment submission (auto-create thread and record)
     if message.attachments:
-        # Add vote reactions to the original message for attachments
-        await message.add_reaction("⬆️")
-        await message.add_reaction("⬇️")
+        # Add vote reactions (thumbs-up/thumbs-down) to the original message for attachments
+        await message.add_reaction("👍")
+        await message.add_reaction("👎")
         print(f"📸 Passive submission by {message.author} | MsgID: {message.id}")
         att = message.attachments[0]
-        # Record submission metadata (tags + original message for reply-votes)
         now_iso = datetime.utcnow().isoformat()
-        # extract hashtags from content
+        # Record submission metadata (tags + original message for reply-votes)
         tag_list = [w.lstrip('#') for w in message.content.split() if w.startswith('#')]
         tags = ' '.join(tag_list)
         c.execute(
@@ -672,16 +641,8 @@ async def on_message(message):
         )
         sub_id = c.lastrowid
         conn.commit()
-        # Award point
-        c.execute(
-            "INSERT OR REPLACE INTO rankings (user_id, points) "
-            "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
-            (uid, uid),
-        )
-        conn.commit()
-        points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
-        # Post and thread
-        chan = message.channel
+        # Post and thread; no immediate points, voting only
+        chan = bot.get_channel(VOTING_HALL_CHANNEL_ID)
         sent = await chan.send(f"📥 **File Submission from {message.author.mention}:**", file=await att.to_file())
         thread = await sent.create_thread(name=f"{message.author.name}'s submission")
         c.execute(
@@ -689,7 +650,7 @@ async def on_message(message):
             (thread.id, sent.id, sub_id)
         )
         conn.commit()
-        await chan.send(f"✅ Submission accepted! You now have {points} points.")
+        await chan.send("✅ Submission accepted! Voting is now open.")
         return
 
     # Link submission (record tags + original message)
@@ -706,15 +667,7 @@ async def on_message(message):
         )
         sub_id = c.lastrowid
         conn.commit()
-        # Award point
-        c.execute(
-            "INSERT OR REPLACE INTO rankings (user_id, points) "
-            "VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + 1)",
-            (uid, uid),
-        )
-        conn.commit()
-        points = c.execute("SELECT points FROM rankings WHERE user_id = ?", (uid,)).fetchone()[0]
-        chan = message.channel
+        chan = bot.get_channel(VOTING_HALL_CHANNEL_ID)
         sent = await chan.send(f"📥 **Link Submission from {message.author.mention}:** {link}")
         thread = await sent.create_thread(name=f"{message.author.name}'s submission")
         c.execute(
@@ -722,7 +675,8 @@ async def on_message(message):
             (thread.id, sent.id, sub_id)
         )
         conn.commit()
-        await chan.send(f"✅ Submission accepted! You now have {points} points.")
+        # Confirm submission; voting via reactions only
+        await chan.send("✅ Submission accepted! Voting is now open.")
 
 # Run bot
 bot.run(TOKEN)

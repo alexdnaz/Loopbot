@@ -12,7 +12,18 @@ import openai
 import sys
 import random
 import re
+
 from bs4 import BeautifulSoup
+
+# Nitter instances (fallback) for lightweight Twitter scraping
+NITTER_INSTANCES = [
+    "https://nitter.net",
+    "https://nitter.snopyta.org",
+    "https://nitter.1d4.us",
+]
+
+# Number of memes to fetch per scrape
+SCRAPE_LIMIT = 25
 
 # Nitter instances (fallback) for lightweight Twitter scraping
 NITTER_INSTANCES = [
@@ -764,6 +775,8 @@ async def scrape(ctx):
     """Scrape trending and funny memes from Twitter via Nitter fallback and post to the memes-and-vibes channel."""
     headers = {"User-Agent": "Mozilla/5.0"}
     memes = []
+    # Track seen URLs to avoid duplicates across sources
+    seen = set()
     async with aiohttp.ClientSession() as session:
         # Try Nitter instances first for Twitter-sourced memes
         for base in NITTER_INSTANCES:
@@ -777,7 +790,6 @@ async def scrape(ctx):
                 continue
 
             soup = BeautifulSoup(html, "html.parser")
-            seen = set()
             for img in soup.find_all("img", class_="attachment-image"):
                 src = img.get("src", "")
                 if not src:
@@ -789,7 +801,7 @@ async def scrape(ctx):
                 if src not in seen:
                     seen.add(src)
                     memes.append(src)
-                if len(memes) >= 12:
+                if len(memes) >= SCRAPE_LIMIT:
                     break
             if memes:
                 break
@@ -797,15 +809,16 @@ async def scrape(ctx):
         # Fallback to Reddit r/memes top posts if no Twitter memes found
         if not memes:
             try:
-                reddit_url = "https://www.reddit.com/r/memes/top/.json?limit=12&t=day"
+                reddit_url = f"https://www.reddit.com/r/memes/top/.json?limit={SCRAPE_LIMIT}&t=day"
                 async with session.get(reddit_url, headers=headers) as rresp:
                     if rresp.status == 200:
                         data = await rresp.json()
                         for child in data.get("data", {}).get("children", []):
                             url = child.get("data", {}).get("url_overridden_by_dest") or child.get("data", {}).get("url")
-                            if url and any(url.lower().endswith(ext) for ext in (".jpg", ".png", ".gif")):
+                            if url and any(url.lower().endswith(ext) for ext in (".jpg", ".png", ".gif")) and url not in seen:
+                                seen.add(url)
                                 memes.append(url)
-                            if len(memes) >= 12:
+                            if len(memes) >= SCRAPE_LIMIT:
                                 break
             except Exception:
                 pass

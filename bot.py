@@ -260,9 +260,9 @@ async def post_daily_challenge():
     else:
         print("⚠️ Challenge channel not found. Check CHALLENGE_CHANNEL_ID.")
 
-@tasks.loop(time=dtime(hour=LEADERBOARD_HOUR, minute=LEADERBOARD_MINUTE))
+@tasks.loop(time=dtime(hour=LEADERBOARD_HOUR, minute=LEADERBOARD_MINUTE, tzinfo=timezone.utc))
 async def post_daily_leaderboard():
-    """Post the daily top-5 leaderboard at the configured time (local clock)."""
+    """Post the daily top-5 leaderboard at the configured UTC time."""
     channel = bot.get_channel(LEADERBOARD_CHANNEL_ID)
     if channel:
         # Exclude the bot user from the leaderboard

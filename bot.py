@@ -709,9 +709,10 @@ async def memes(ctx):
         return await ctx.send(
             "❌ You need Administrator or Manage Server permissions to use this command."
         )
+    # Use mobile Twitter to reduce header size and simplify HTML
     url = (
-        "https://twitter.com/search"
-        "?q=%23meme%20filter%3Aimages&src=typed_query&f=live"
+        "https://mobile.twitter.com/search"
+        "?q=%23meme%20filter%3Aimages&f=live"
     )
     headers = {"User-Agent": "Mozilla/5.0"}
     # Fetch meme page; wrap to handle header-size or network errors

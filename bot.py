@@ -771,8 +771,9 @@ async def memes(ctx):
     await ctx.send("✅ Posted latest memes!")
 
 @bot.command(name='scrape')
+@commands.is_owner()
 async def scrape(ctx):
-    """Scrape trending and funny memes from Twitter via Nitter fallback and post to the memes-and-vibes channel."""
+    """(Owner-only) Scrape trending and funny memes from Twitter via Nitter fallback and post to the memes-and-vibes channel."""
     headers = {"User-Agent": "Mozilla/5.0"}
     memes = []
     # Track seen URLs to avoid duplicates across sources
@@ -832,6 +833,14 @@ async def scrape(ctx):
     for src in memes:
         await channel.send(src)
     await ctx.send("✅ Scraped and posted latest memes!")
+
+@scrape.error
+async def scrape_error(ctx, error):
+    """Handle permission errors for the scrape command."""
+    if isinstance(error, commands.NotOwner):
+        await ctx.send("❌ Only the bot owner can use this command.")
+    else:
+        raise error
 
 
 @bot.command(name='chat')

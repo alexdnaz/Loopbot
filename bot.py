@@ -714,9 +714,16 @@ async def memes(ctx):
         "?q=%23meme%20filter%3Aimages&src=typed_query&f=live"
     )
     headers = {"User-Agent": "Mozilla/5.0"}
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as resp:
-            html = await resp.text()
+    # Fetch meme page; wrap to handle header-size or network errors
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as resp:
+                html = await resp.text()
+    except Exception as e:
+        print(f"[❌] Meme fetch error: {e}")
+        return await ctx.send(
+            "⚠️ Unable to fetch memes right now. Please try again later."
+        )
     soup = BeautifulSoup(html, 'html.parser')
     imgs = soup.find_all('img', src=re.compile(r'twimg\.com/media'))
     seen = set()

@@ -752,6 +752,50 @@ async def memes(ctx):
             await channel.send(src)
     await ctx.send("✅ Posted latest memes!")
 
+@bot.command(name='scrape')
+async def scrape(ctx):
+    """Scrape trending and funny memes from Twitter mobile and post to the memes-and-vibes channel."""
+    # Scrape memes via lightweight Nitter front-end
+    url = (
+        "https://nitter.net/search"
+        "?f=images&q=%23meme%20OR%23funny%20OR%23trending"
+    )
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as resp:
+                html = await resp.text()
+    except Exception as e:
+        print(f"[❌] Scrape error: {e}")
+        return await ctx.send("⚠️ Unable to scrape memes right now. Please try again later.")
+
+    soup = BeautifulSoup(html, "html.parser")
+    imgs = soup.find_all("img", class_="attachment-image")
+    seen = set()
+    memes = []
+    for img in imgs:
+        src = img.get("src", "")
+        if not src:
+            continue
+        if src.startswith("/"):
+            src = "https://nitter.net" + src
+        if src.startswith("//"):
+            src = "https:" + src
+        if src not in seen:
+            seen.add(src)
+            memes.append(src)
+        if len(memes) >= 5:
+            break
+    if not memes:
+        return await ctx.send("🔍 No memes found at the moment. Try again later.")
+
+    channel = bot.get_channel(MEMES_CHANNEL_ID)
+    if not channel:
+        return await ctx.send("❌ Memes channel not found. Check configuration.")
+    for src in memes:
+        await channel.send(src)
+    await ctx.send("✅ Scraped and posted latest memes!")
+
 
 @bot.command(name='chat')
 async def chat(ctx, *, prompt: str = None):

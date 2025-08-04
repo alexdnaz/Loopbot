@@ -400,7 +400,7 @@ async def submit(ctx, link: str = None):
         await ctx.message.add_reaction("👎")
         print(f"📸 Submission by {ctx.author} | MsgID: {ctx.message.id}")
         att = attachments[0]
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
         # record submission (tags + orig message for reply-votes)
         tag_list = [w.lstrip('#') for w in ctx.message.content.split() if w.startswith('#')]
         tags = ' '.join(tag_list)
@@ -435,7 +435,7 @@ async def submit(ctx, link: str = None):
     if not link or link.strip().startswith(bot.command_prefix):
         await ctx.send("❌ Please provide a valid URL (not a bot command) or attach a file.")
         return
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
     c.execute(
         "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, ?, ?)",
         (
@@ -678,7 +678,7 @@ async def on_message(message):
         await message.add_reaction("👎")
         print(f"📸 Passive submission by {message.author} | MsgID: {message.id}")
         att = message.attachments[0]
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
         # Record submission metadata (tags + original message for reply-votes)
         tag_list = [w.lstrip('#') for w in message.content.split() if w.startswith('#')]
         tags = ' '.join(tag_list)
@@ -711,7 +711,7 @@ async def on_message(message):
     # Link submission (record tags + original message)
     raw = message.content.strip()
     if raw:
-        now_iso = datetime.utcnow().isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
         parts = raw.split()
         url = parts[0]
         tag_list = [w.lstrip('#') for w in parts[1:] if w.startswith('#')]

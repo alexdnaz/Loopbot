@@ -365,32 +365,46 @@ async def crypto_price_tracker():
     if not channel:
         print("⚠️ Crypto channel not found. Check CRYPTO_CHANNEL_ID.")
         return
-    url = (
-        "https://api.coingecko.com/api/v3/simple/price"
-        "?ids=bitcoin,ethereum,solana&vs_currencies=usd"
+    # Fetch market data including images and 24h change for styling
+    markets_url = (
+        "https://api.coingecko.com/api/v3/coins/markets"
+        "?vs_currency=usd&ids=bitcoin,ethereum,solana"
     )
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
+        async with session.get(markets_url) as resp:
             data = await resp.json()
     if not data:
-        print("⚠️ Failed to fetch crypto prices.")
+        print("⚠️ Failed to fetch crypto market data.")
         return
-    # Build an embedded message for visual flair
-    embed = discord.Embed(
-        title="💰 Crypto Prices (USD)",
-        color=discord.Color.dark_gold(),
-        timestamp=datetime.now(timezone.utc),
-    )
-    for coin, info in data.items():
-        usd = info.get('usd')
-        price_str = f"${usd:,}" if usd is not None else "N/A"
-        embed.add_field(
-            name=coin.capitalize(),
-            value=f"**{price_str}**",
-            inline=True,
+    # Send one embed per coin with its logo and 24h change
+    embeds = []
+    now = datetime.now(timezone.utc)
+    for coin in data:
+        name = coin.get('name', '').title()
+        symbol = coin.get('symbol', '').upper()
+        price = coin.get('current_price')
+        change24 = coin.get('price_change_percentage_24h')
+        image = coin.get('image')
+        embed = discord.Embed(
+            title=f"{symbol} - {name}",
+            color=discord.Color.dark_gold(),
+            timestamp=now,
         )
-    embed.set_footer(text="Data provided by CoinGecko")
-    await channel.send(embed=embed)
+        if image:
+            embed.set_thumbnail(url=image)
+        embed.add_field(
+            name="Price (USD)", value=f"**${price:,}**" if price is not None else "N/A", inline=False
+        )
+        if change24 is not None:
+            arrow = "📈" if change24 >= 0 else "📉"
+            embed.add_field(
+                name="24h Change",
+                value=f"{arrow} {change24:+.2f}%",
+                inline=False,
+            )
+        embed.set_footer(text="Data provided by CoinGecko")
+        embeds.append(embed)
+    await channel.send(embeds=embeds)
 
 # Commands
 @bot.command()

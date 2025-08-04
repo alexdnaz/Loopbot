@@ -702,8 +702,8 @@ async def search(ctx, tag: str = None):
 
 @bot.command(name='memes')
 @commands.check_any(
-    commands.has_permissions(administrator=True),
-    commands.has_permissions(manage_guild=True)
+    commands.has_guild_permissions(administrator=True),
+    commands.has_guild_permissions(manage_guild=True)
 )
 async def memes(ctx):
     """Fetch trending meme images from Twitter and post to the memes-and-vibes channel."""

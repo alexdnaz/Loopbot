@@ -523,6 +523,12 @@ async def vote(ctx, score: int = None):
             (uid, sub_id, score, now_iso),
         )
         conn.commit()
+        # Award 1 point for voting
+        c.execute(
+            "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
+            (uid, uid, 1),
+        )
+        conn.commit()
         await ctx.send(f"✅ Your vote of {score} has been recorded.")
     except sqlite3.IntegrityError:
         await ctx.send("❌ You have already voted for this submission.")

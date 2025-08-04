@@ -11,6 +11,8 @@ from datetime import datetime, time as dtime, timezone, timedelta
 import openai
 import sys
 import random
+import re
+from bs4 import BeautifulSoup
 
 # Load environment variables
 # Load environment variables
@@ -89,6 +91,7 @@ LEADERBOARD_CHANNEL_ID = 1393810922396585984 # leaderboard
 CRYPTO_CHANNEL_ID = 1401992445251817472      # crypto price tracker
 WELCOME_CHANNEL_ID = 1393807671525773322     # welcome
 HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
+MEMES_CHANNEL_ID = 1393811645922545745       # memes-and-vibes
 
 ## SQLite DB setup
 ## SQLite DB setup
@@ -696,6 +699,36 @@ async def search(ctx, tag: str = None):
     # limit output
     out = results[:10]
     await ctx.send(f"🔍 Search results for #{tag_clean}:\n" + "\n".join(out))
+
+@bot.command(name='memes')
+async def memes(ctx):
+    """Fetch trending meme images from Twitter and post to the memes-and-vibes channel."""
+    url = (
+        "https://twitter.com/search"
+        "?q=%23meme%20filter%3Aimages&src=typed_query&f=live"
+    )
+    headers = {"User-Agent": "Mozilla/5.0"}
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as resp:
+            html = await resp.text()
+    soup = BeautifulSoup(html, 'html.parser')
+    imgs = soup.find_all('img', src=re.compile(r'twimg\.com/media'))
+    seen = set()
+    memes = []
+    for img in imgs:
+        src = img['src']
+        if src not in seen:
+            seen.add(src)
+            memes.append(src)
+        if len(memes) >= 5:
+            break
+    if not memes:
+        return await ctx.send("🔍 No memes found at the moment. Try again later.")
+    channel = bot.get_channel(MEMES_CHANNEL_ID)
+    for src in memes:
+        if channel:
+            await channel.send(src)
+    await ctx.send("✅ Posted latest memes!")
 
 @bot.command(name='chat')
 async def chat(ctx, *, prompt: str = None):

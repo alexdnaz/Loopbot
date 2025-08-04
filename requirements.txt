@@ -5,3 +5,4 @@ aiohttp==3.9.5                 # Asynchronous HTTP requests (useful for webhooks
 psutil==5.9.8                  # System and process utilities (for monitoring bot health)
 pyyaml==6.0.1                  # YAML support for config files
 openai==0.28.1                 # Openai API
+beautifulsoup4>=4.11.1         # HTML parsing for meme scraping

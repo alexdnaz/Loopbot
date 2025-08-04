@@ -587,9 +587,10 @@ async def vote(ctx, score: int = None):
                 break
     # Fallback: allow voting in a channel context by matching the previous submission message
     if not sub_id and ctx.channel.id == VOTING_HALL_CHANNEL_ID:
-        prev = await ctx.channel.history(limit=1, before=ctx.message).flatten()
-        if prev:
-            prev_msg = prev[0]
+        # get the most recent message before this one
+        prev_msgs = [msg async for msg in ctx.channel.history(limit=1, before=ctx.message)]
+        if prev_msgs:
+            prev_msg = prev_msgs[0]
             for tbl in ('audio_submissions', 'link_submissions'):
                 c.execute(
                     f"SELECT id FROM {tbl} WHERE message_id = ?",

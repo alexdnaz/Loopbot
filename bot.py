@@ -88,8 +88,12 @@ HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
 
 ## SQLite DB setup
 ## SQLite DB setup
-# Pick up a persistent volume path if provided (Railway, Docker, etc.), else use cwd; override with DB_PATH.
-persistent_dir = os.getenv('RAILWAY_PERSISTENT_DIR') or os.getenv('DATA_DIR')
+## Persistent storage detection: prefer env var, else auto‑detect mounted /data
+persistent_dir = (
+    os.getenv('RAILWAY_PERSISTENT_DIR')
+    or os.getenv('DATA_DIR')
+    or ('/data' if os.path.isdir('/data') else None)
+)
 explicit_db = os.getenv('DB_PATH')
 if persistent_dir:
     # Ensure the persistent directory exists

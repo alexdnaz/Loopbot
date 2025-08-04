@@ -27,8 +27,8 @@ Steps:
    - (Optional) `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.
 5. **Persisting the SQLite database:**
    - Railway containers are ephemeral, so mount a Persistent Volume at `/data`.
-   - In the Railway Dashboard, add a Volume and mount it to `/data`.
-   - The bot auto-detects `RAILWAY_PERSISTENT_DIR` (or `DATA_DIR`) for `rankings.db`.
+   - In the Railway Dashboard, add a Volume and set its **Mount Path** to `/data`.
+   - LoopBot now auto-detects `/data` (or `RAILWAY_PERSISTENT_DIR`/`DATA_DIR`) to store `rankings.db`.
      Your DB file will live at `/data/rankings.db` and survive restarts.
    - **Restoring a backup:** If you have an existing `rankings.db` locally, commit it to your repo
      at the project root before deploying. On first run, the bot will copy that file into

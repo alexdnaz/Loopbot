@@ -94,6 +94,8 @@ persistent_dir = (
     or os.getenv('DATA_DIR')
     or ('/data' if os.path.isdir('/data') else None)
 )
+# Debug: verify which directory is used for persistence
+print(f"🔍 Persistent dir is: {persistent_dir}")
 explicit_db = os.getenv('DB_PATH')
 if persistent_dir:
     # Ensure the persistent directory exists

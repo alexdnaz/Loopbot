@@ -105,8 +105,14 @@ if persistent_dir:
         )
     DB_PATH = explicit_db or vol_file
 else:
-    # Fallback to tmp directory or explicit path
-    DB_PATH = explicit_db or '/tmp/rankings.db'
+    # Require either a persistent volume or an explicit DB_PATH; exit if neither provided
+    if not explicit_db:
+        print(
+            "❌ ERROR: The bot requires a persistent volume at /data "
+            "(set RAILWAY_PERSISTENT_DIR or DATA_DIR) or an explicit DB_PATH env var."
+        )
+        sys.exit(1)
+    DB_PATH = explicit_db
 
 # Ensure parent directory exists before opening the SQLite database
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)

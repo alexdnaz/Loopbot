@@ -486,62 +486,35 @@ async def leaderboard(ctx):
 
 @bot.command(name='vote')
 async def vote(ctx, score: int = None):
-    """Cast a 1–10 vote for the submission associated with this thread."""
+    """Cast a 1–10 vote for a file submission by replying or inside its thread."""
     if score is None:
         return await ctx.send("❌ Please provide a vote score, e.g. `!vote 7`.")
-    # Allow voting by replying to the original submission message
-    sub = None
+    # Identify audio submission by reply or thread context
+    sub_id = None
     ref = ctx.message.reference
     if ref and ref.message_id:
-        # lookup submission by bot repost message or original message
         c.execute(
-            "SELECT id FROM link_submissions WHERE message_id = ? OR orig_message_id = ?",
-            (ref.message_id, ref.message_id)
+            "SELECT id FROM audio_submissions WHERE message_id = ? OR orig_message_id = ?",
+            (ref.message_id, ref.message_id),
         )
         row = c.fetchone()
         if row:
-            sub = ('link', row[0])
-        else:
+            sub_id = row[0]
+    if not sub_id:
+        thread = ctx.channel
+        if hasattr(thread, 'parent_id') and thread.parent_id:
             c.execute(
-                "SELECT id FROM audio_submissions WHERE message_id = ? OR orig_message_id = ?",
-                (ref.message_id, ref.message_id)
+                "SELECT id FROM audio_submissions WHERE thread_id = ?",
+                (thread.id,),
             )
             row = c.fetchone()
             if row:
-                sub = ('audio', row[0])
-    if not sub:
-        # fallback: ensure we are in the submission thread
-        thread = ctx.channel
-        if hasattr(thread, 'parent_id') and thread.parent_id:
-            c.execute("SELECT id FROM link_submissions WHERE thread_id = ?", (thread.id,))
-            row = c.fetchone()
-            sub = ('link', row[0]) if row else None
-            if not sub:
-                c.execute("SELECT id FROM audio_submissions WHERE thread_id = ?", (thread.id,))
-                row = c.fetchone()
-                sub = ('audio', row[0]) if row else None
-    if not sub:
-        # Auto-register any replied-to message as a link submission for voting
-        ref = ctx.message.reference
-        if ref and ref.message_id:
-            ref_chan = bot.get_channel(ref.channel_id) or ctx.channel
-            ref_msg = await ref_chan.fetch_message(ref.message_id)
-            now_iso = datetime.now(timezone.utc).isoformat()
-            # Use a Discord link to the original message
-            link = f"https://discord.com/channels/{ctx.guild.id}/{ref_msg.channel.id}/{ref_msg.id}"
-            c.execute(
-                "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, ?, ?)",
-                (str(ref_msg.author.id), link, now_iso, "", ref_msg.id),
-            )
-            sub = ('link', c.lastrowid)
-            conn.commit()
-        else:
-            await ctx.send("❌ You can only vote by replying to a submission or inside its thread.")
-            return
-    if not 1 <= score <= 10:
-        await ctx.send("❌ Please vote with a score between 1 and 10.")
+                sub_id = row[0]
+    if not sub_id:
+        await ctx.send("❌ You can only vote by replying to a file submission or inside its thread.")
         return
-    sub_id = sub[1]
+    if not 1 <= score <= 10:
+        return await ctx.send("❌ Please vote with a score between 1 and 10.")
     uid = str(ctx.author.id)
     now_iso = datetime.now(timezone.utc).isoformat()
     try:
@@ -660,35 +633,6 @@ async def on_member_join(member):
         await welcome_chan.send(text)
 
 
-# Reaction-based voting
-@bot.event
-async def on_raw_reaction_add(payload):
-    """Handle up/down/thumbs-up/thumbs-down voting reactions in submissions channel."""
-    # ignore reactions outside submissions or added by the bot itself
-    if payload.channel_id != SUBMISSIONS_CHANNEL_ID or payload.user_id == bot.user.id:
-        return
-    user_id = str(payload.user_id)
-    guild = bot.get_guild(payload.guild_id)
-    member = guild.get_member(payload.user_id)
-    channel = bot.get_channel(payload.channel_id)
-    # Thumbs-up adds a point, thumbs-down removes a point
-    if payload.emoji.name == "👍":
-        change = 1
-        reaction_msg = "+1 point"
-    elif payload.emoji.name == "👎":
-        change = -1
-        reaction_msg = "-1 point"
-    else:
-        return
-    # Update ranking
-    c.execute(
-        "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
-        (user_id, user_id, change),
-    )
-    conn.commit()
-    # Notify
-    if channel and member:
-        await channel.send(f"🗳️ {member.mention} voted! {reaction_msg}.")
 
 # Allow raw file or link posts in submissions channel as submissions
 @bot.event

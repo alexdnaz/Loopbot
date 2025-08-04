@@ -249,10 +249,10 @@ async def on_ready():
     # Normal operation: start the daily challenge loop if scheduling is enabled
     if _RUN_SCHEDULE:
         try:
-        post_daily_challenge.start()
-        post_daily_leaderboard.start()
-        post_vote_summary.start()
-        crypto_price_tracker.start()
+            post_daily_challenge.start()
+            post_daily_leaderboard.start()
+            post_vote_summary.start()
+            crypto_price_tracker.start()
         except RuntimeError:
             pass
     else:

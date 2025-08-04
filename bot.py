@@ -105,14 +105,18 @@ if persistent_dir:
         )
     DB_PATH = explicit_db or vol_file
 else:
-    # Require either a persistent volume or an explicit DB_PATH; exit if neither provided
-    if not explicit_db:
+    # No persistent volume: allow explicit DB_PATH or fallback to in-repo rankings.db if present
+    if explicit_db:
+        DB_PATH = explicit_db
+    elif os.path.exists(os.path.join(os.getcwd(), 'rankings.db')):
+        # Use committed in-repo database (ephemeral container storage)
+        DB_PATH = os.path.join(os.getcwd(), 'rankings.db')
+    else:
         print(
-            "❌ ERROR: The bot requires a persistent volume at /data "
-            "(set RAILWAY_PERSISTENT_DIR or DATA_DIR) or an explicit DB_PATH env var."
+            "❌ ERROR: No persistent volume at /data, and no DB_PATH set.\n"
+            "Commit a rankings.db to the repo root or configure DB_PATH to enable data persistence."
         )
         sys.exit(1)
-    DB_PATH = explicit_db
 
 # Ensure parent directory exists before opening the SQLite database
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)

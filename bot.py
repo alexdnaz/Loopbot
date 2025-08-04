@@ -701,7 +701,10 @@ async def search(ctx, tag: str = None):
     await ctx.send(f"🔍 Search results for #{tag_clean}:\n" + "\n".join(out))
 
 @bot.command(name='memes')
-@commands.has_permissions(administrator=True)
+@commands.check_any(
+    commands.has_permissions(administrator=True),
+    commands.has_permissions(manage_guild=True)
+)
 async def memes(ctx):
     """Fetch trending meme images from Twitter and post to the memes-and-vibes channel."""
     url = (
@@ -733,8 +736,11 @@ async def memes(ctx):
 
 @memes.error
 async def memes_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ You need Administrator permissions to use this command.")
+    # Only administrators or server managers allowed
+    if isinstance(error, (commands.MissingPermissions, commands.CheckAnyFailure)):
+        await ctx.send(
+            "❌ You need Administrator or Manage Server permissions to use this command."
+        )
     else:
         raise error
 

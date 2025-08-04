@@ -711,7 +711,7 @@ async def on_message(message):
     # Link submission (record tags + original message)
     raw = message.content.strip()
     if raw:
-    now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
         parts = raw.split()
         url = parts[0]
         tag_list = [w.lstrip('#') for w in parts[1:] if w.startswith('#')]

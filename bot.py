@@ -765,6 +765,7 @@ async def scrape(ctx):
     headers = {"User-Agent": "Mozilla/5.0"}
     memes = []
     async with aiohttp.ClientSession() as session:
+        # Try Nitter instances first for Twitter-sourced memes
         for base in NITTER_INSTANCES:
             try:
                 fetch_url = f"{base}/search?f=images&q=%23meme%20OR%23funny%20OR%23trending"
@@ -792,6 +793,22 @@ async def scrape(ctx):
                     break
             if memes:
                 break
+
+        # Fallback to Reddit r/memes top posts if no Twitter memes found
+        if not memes:
+            try:
+                reddit_url = "https://www.reddit.com/r/memes/top/.json?limit=5&t=day"
+                async with session.get(reddit_url, headers=headers) as rresp:
+                    if rresp.status == 200:
+                        data = await rresp.json()
+                        for child in data.get("data", {}).get("children", []):
+                            url = child.get("data", {}).get("url_overridden_by_dest") or child.get("data", {}).get("url")
+                            if url and any(url.lower().endswith(ext) for ext in (".jpg", ".png", ".gif")):
+                                memes.append(url)
+                            if len(memes) >= 5:
+                                break
+            except Exception:
+                pass
 
     if not memes:
         return await ctx.send("🔍 No memes found at the moment. Try again later.")

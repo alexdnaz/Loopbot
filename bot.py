@@ -357,7 +357,11 @@ async def post_vote_summary():
 
 
 @tasks.loop(
-    time=[dtime(hour=h, minute=0, tzinfo=timezone.utc) for h in range(0, 24, CRYPTO_INTERVAL_HOURS)]
+    time=[
+        dtime(hour=h, minute=m, tzinfo=timezone.utc)
+        for h in range(24)
+        for m in (0, 15, 30, 45)
+    ]
 )
 async def crypto_price_tracker():
     """Fetch and post Bitcoin, Ethereum, and Solana USD prices to the crypto channel."""

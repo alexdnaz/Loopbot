@@ -789,7 +789,7 @@ async def scrape(ctx):
                 if src not in seen:
                     seen.add(src)
                     memes.append(src)
-                if len(memes) >= 5:
+                if len(memes) >= 12:
                     break
             if memes:
                 break
@@ -797,7 +797,7 @@ async def scrape(ctx):
         # Fallback to Reddit r/memes top posts if no Twitter memes found
         if not memes:
             try:
-                reddit_url = "https://www.reddit.com/r/memes/top/.json?limit=5&t=day"
+                reddit_url = "https://www.reddit.com/r/memes/top/.json?limit=12&t=day"
                 async with session.get(reddit_url, headers=headers) as rresp:
                     if rresp.status == 200:
                         data = await rresp.json()
@@ -805,7 +805,7 @@ async def scrape(ctx):
                             url = child.get("data", {}).get("url_overridden_by_dest") or child.get("data", {}).get("url")
                             if url and any(url.lower().endswith(ext) for ext in (".jpg", ".png", ".gif")):
                                 memes.append(url)
-                            if len(memes) >= 5:
+                            if len(memes) >= 12:
                                 break
             except Exception:
                 pass

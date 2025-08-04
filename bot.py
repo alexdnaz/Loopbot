@@ -3,6 +3,7 @@ import discord
 import asyncio
 import sqlite3
 import itertools
+import aiohttp
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from datetime import datetime, time as dtime, timezone, timedelta
@@ -33,6 +34,8 @@ LEADERBOARD_MINUTE = int(os.getenv('LEADERBOARD_MINUTE', '5'))
 # Voting summary schedule (24h UTC), configurable via .env
 VOTE_SUMMARY_HOUR = int(os.getenv('VOTE_SUMMARY_HOUR', '0'))
 VOTE_SUMMARY_MINUTE = int(os.getenv('VOTE_SUMMARY_MINUTE', '0'))
+# Crypto price update interval in hours (default: every hour)
+CRYPTO_INTERVAL_HOURS = int(os.getenv('CRYPTO_INTERVAL_HOURS', '1'))
 
 # Intents
 intents = discord.Intents.default()
@@ -83,6 +86,7 @@ CHALLENGE_CHANNEL_ID = 1393808509463691294  # current-challenge
 SUBMISSIONS_CHANNEL_ID = 1393808617354035321 # submissions
 VOTING_HALL_CHANNEL_ID = 1393808682407428127 # voting-hall
 LEADERBOARD_CHANNEL_ID = 1393810922396585984 # leaderboard
+CRYPTO_CHANNEL_ID = 1401992445251817472      # crypto price tracker
 WELCOME_CHANNEL_ID = 1393807671525773322     # welcome
 HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
 
@@ -245,9 +249,10 @@ async def on_ready():
     # Normal operation: start the daily challenge loop if scheduling is enabled
     if _RUN_SCHEDULE:
         try:
-            post_daily_challenge.start()
-            post_daily_leaderboard.start()
-            post_vote_summary.start()
+        post_daily_challenge.start()
+        post_daily_leaderboard.start()
+        post_vote_summary.start()
+        crypto_price_tracker.start()
         except RuntimeError:
             pass
     else:
@@ -349,6 +354,27 @@ async def post_vote_summary():
         await channel.send(embed=embed)
     else:
         print("⚠️ Voting hall channel not found. Check VOTING_HALL_CHANNEL_ID.")
+
+
+@tasks.loop(hours=CRYPTO_INTERVAL_HOURS)
+async def crypto_price_tracker():
+    """Fetch and post Bitcoin, Ethereum, and Solana USD prices to the crypto channel."""
+    channel = bot.get_channel(CRYPTO_CHANNEL_ID)
+    if not channel:
+        print("⚠️ Crypto channel not found. Check CRYPTO_CHANNEL_ID.")
+        return
+    url = (
+        "https://api.coingecko.com/api/v3/simple/price"
+        "?ids=bitcoin,ethereum,solana&vs_currencies=usd"
+    )
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            data = await resp.json()
+    if not data:
+        print("⚠️ Failed to fetch crypto prices.")
+        return
+    lines = [f"**{coin.capitalize()}**: ${info.get('usd', 'N/A'):,}" for coin, info in data.items()]
+    await channel.send("💰 **Crypto Prices (USD)**\n" + "\n".join(lines))
 
 # Commands
 @bot.command()

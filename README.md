@@ -39,3 +39,9 @@ Steps:
      3. A committed `rankings.db` at the repo root (for ephemeral fallback).
      If none are available, the bot will exit with an error.
 5. Deploy – LoopBot will stay online continuously.
+
+## Crypto price tracker
+LoopBot can now post Bitcoin, Ethereum, and Solana prices on a schedule.
+- To enable: set a volume or `DB_PATH` as above and redeploy.
+- Posts go to channel ID `1401992445251817472` on the hour, every hour by default.
+- To adjust interval (in hours), set `CRYPTO_INTERVAL_HOURS` in your env.

@@ -496,32 +496,38 @@ async def leaderboard(ctx):
 
 @bot.command(name='vote')
 async def vote(ctx, score: int = None):
-    """Cast a 1–10 vote for a file submission by replying or inside its thread."""
+    """Cast a 1–10 vote for a file or link submission by replying or inside its thread."""
     if score is None:
         return await ctx.send("❌ Please provide a vote score, e.g. `!vote 7`.")
-    # Identify audio submission by reply or thread context
+    # Identify submission by reply or thread context (audio OR link)
     sub_id = None
     ref = ctx.message.reference
     if ref and ref.message_id:
-        c.execute(
-            "SELECT id FROM audio_submissions WHERE message_id = ? OR orig_message_id = ?",
-            (ref.message_id, ref.message_id),
-        )
-        row = c.fetchone()
-        if row:
-            sub_id = row[0]
-    if not sub_id:
-        thread = ctx.channel
-        if hasattr(thread, 'parent_id') and thread.parent_id:
+        for tbl in ('audio_submissions', 'link_submissions'):
             c.execute(
-                "SELECT id FROM audio_submissions WHERE thread_id = ?",
-                (thread.id,),
+                f"SELECT id FROM {tbl} WHERE message_id = ? OR orig_message_id = ?",
+                (ref.message_id, ref.message_id),
             )
             row = c.fetchone()
             if row:
                 sub_id = row[0]
+                break
     if not sub_id:
-        await ctx.send("❌ You can only vote by replying to a file submission or inside its thread.")
+        thread = ctx.channel
+        if hasattr(thread, 'parent_id') and thread.parent_id:
+            for tbl in ('audio_submissions', 'link_submissions'):
+                c.execute(
+                    f"SELECT id FROM {tbl} WHERE thread_id = ?",
+                    (thread.id,),
+                )
+                row = c.fetchone()
+                if row:
+                    sub_id = row[0]
+                    break
+    if not sub_id:
+        await ctx.send(
+            "❌ You can only vote by replying to a submission (file or link) or inside its thread."
+        )
         return
     if not 1 <= score <= 10:
         return await ctx.send("❌ Please vote with a score between 1 and 10.")

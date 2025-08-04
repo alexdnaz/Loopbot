@@ -512,13 +512,15 @@ async def vote(ctx, score: int = None):
             if row:
                 sub_id = row[0]
                 break
-    if not sub_id:
-        thread = ctx.channel
-        if hasattr(thread, 'parent_id') and thread.parent_id:
+    # Fallback: allow voting in a channel context by matching the previous submission message
+    if not sub_id and ctx.channel.id == VOTING_HALL_CHANNEL_ID:
+        prev = await ctx.channel.history(limit=1, before=ctx.message).flatten()
+        if prev:
+            prev_msg = prev[0]
             for tbl in ('audio_submissions', 'link_submissions'):
                 c.execute(
-                    f"SELECT id FROM {tbl} WHERE thread_id = ?",
-                    (thread.id,),
+                    f"SELECT id FROM {tbl} WHERE message_id = ?",
+                    (prev_msg.id,),
                 )
                 row = c.fetchone()
                 if row:

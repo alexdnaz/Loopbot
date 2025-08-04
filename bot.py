@@ -260,9 +260,9 @@ async def post_daily_challenge():
     else:
         print("⚠️ Challenge channel not found. Check CHALLENGE_CHANNEL_ID.")
 
-@tasks.loop(time=dtime(hour=LEADERBOARD_HOUR, minute=LEADERBOARD_MINUTE, tzinfo=timezone.utc))
+@tasks.loop(time=dtime(hour=LEADERBOARD_HOUR, minute=LEADERBOARD_MINUTE))
 async def post_daily_leaderboard():
-    """Post the daily top-5 leaderboard at the configured time."""
+    """Post the daily top-5 leaderboard at the configured time (local clock)."""
     channel = bot.get_channel(LEADERBOARD_CHANNEL_ID)
     if channel:
         # Exclude the bot user from the leaderboard
@@ -353,7 +353,7 @@ async def how(ctx):
         "1. Each morning, check the daily challenge in the designated channel or with `!postprompt`.\n"
         "2. Create your work and submit it with `!submit <link>` or attach a file (audio/image/video/other).\n"
         "3. Earn 1 point per submission and bonus points for 👍 reactions.\n"
-        "4. View your score with `!rank` and the top creators with `!leaderboard`.\n"
+        "4. View your score with `!rank` and see today’s leader with `!leaderboard`.\n"
         "5. Administrators can manually post a prompt using `!postprompt`.\n"
         "6. Use `!ping` to check if I'm alive!"
     )
@@ -468,18 +468,20 @@ async def rank(ctx):
 
 @bot.command()
 async def leaderboard(ctx):
-    # Exclude the bot user from the public leaderboard
+    """Show the current top-scoring creator."""
+    # Exclude the bot user from ranking
     bot_id = str(bot.user.id)
     c.execute(
         "SELECT user_id, points FROM rankings WHERE user_id != ? "
-        "ORDER BY points DESC LIMIT 5",
+        "ORDER BY points DESC LIMIT 1",
         (bot_id,)
     )
-    top = c.fetchall()
-    text = "🏆 **Top 5 Creators:**\n" + "\n".join(
-        [f"{i+1}. <@{user}> – {pts} pts" for i, (user, pts) in enumerate(top)]
-    )
-    await ctx.send(text)
+    row = c.fetchone()
+    if row:
+        user_id, pts = row
+        await ctx.send(f"🏅 Current leader: <@{user_id}> with **{pts}** points!")
+    else:
+        await ctx.send("🏅 No submissions yet; no leaderboard available.")
 
 @bot.command(name='vote')
 async def vote(ctx, score: int = None):

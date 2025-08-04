@@ -709,10 +709,10 @@ async def memes(ctx):
         return await ctx.send(
             "❌ You need Administrator or Manage Server permissions to use this command."
         )
-    # Use mobile Twitter to reduce header size and simplify HTML
+    # Scrape memes via Nitter (no JS, lightweight)
     url = (
-        "https://mobile.twitter.com/search"
-        "?q=%23meme%20filter%3Aimages&f=live"
+        "https://nitter.net/search"
+        "?f=images&q=%23meme"
     )
     headers = {"User-Agent": "Mozilla/5.0"}
     # Fetch meme page; wrap to handle header-size or network errors
@@ -726,11 +726,19 @@ async def memes(ctx):
             "⚠️ Unable to fetch memes right now. Please try again later."
         )
     soup = BeautifulSoup(html, 'html.parser')
-    imgs = soup.find_all('img', src=re.compile(r'twimg\.com/media'))
+    # Nitter attachments use <img class="attachment-image" src="/...">
+    imgs = soup.find_all('img', class_='attachment-image')
     seen = set()
     memes = []
     for img in imgs:
-        src = img['src']
+        src = img.get('src', '')
+        if not src:
+            continue
+        # build absolute URL
+        if src.startswith('/'):
+            src = 'https://nitter.net' + src
+        if src.startswith('//'):
+            src = 'https:' + src
         if src not in seen:
             seen.add(src)
             memes.append(src)

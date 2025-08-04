@@ -454,12 +454,12 @@ async def submit(ctx, link: str = None):
             # Pre-add voting reactions for neutral starting point
             await sent.add_reaction("👍")
             await sent.add_reaction("👎")
-        # Only record message ID for voting
-        c.execute(
-            "UPDATE audio_submissions SET message_id = ? WHERE id = ?",
-            (sent.id, sub_id)
-        )
-        conn.commit()
+            # Only record message ID for voting
+            c.execute(
+                "UPDATE audio_submissions SET message_id = ? WHERE id = ?",
+                (sent.id, sub_id)
+            )
+            conn.commit()
         # Confirm submission; voting via reactions only
         await ctx.send("✅ File submission accepted! Voting is now open.")
         return
@@ -539,6 +539,17 @@ async def vote(ctx, score: int = None):
             c.execute(
                 f"SELECT id FROM {tbl} WHERE message_id = ? OR orig_message_id = ?",
                 (ref.message_id, ref.message_id),
+            )
+            row = c.fetchone()
+            if row:
+                sub_id = row[0]
+                break
+    # Allow voting inside a discussion thread without replying
+    if not sub_id and isinstance(ctx.channel, discord.Thread):
+        for tbl in ('audio_submissions', 'link_submissions'):
+            c.execute(
+                f"SELECT id FROM {tbl} WHERE thread_id = ?",
+                (ctx.channel.id,),
             )
             row = c.fetchone()
             if row:
@@ -734,6 +745,7 @@ async def on_message(message):
         # Pre-add voting reactions for neutral starting point
         await sent.add_reaction("👍")
         await sent.add_reaction("👎")
+        # Only record message ID for voting
         c.execute(
             "UPDATE audio_submissions SET message_id = ? WHERE id = ?",
             (sent.id, sub_id)
@@ -767,6 +779,7 @@ async def on_message(message):
         # Pre-add voting reactions for neutral starting point
         await sent.add_reaction("👍")
         await sent.add_reaction("👎")
+        # Only record message ID for voting
         c.execute(
             "UPDATE link_submissions SET message_id = ? WHERE id = ?",
             (sent.id, sub_id)

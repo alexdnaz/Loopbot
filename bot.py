@@ -375,8 +375,22 @@ async def crypto_price_tracker():
     if not data:
         print("⚠️ Failed to fetch crypto prices.")
         return
-    lines = [f"**{coin.capitalize()}**: ${info.get('usd', 'N/A'):,}" for coin, info in data.items()]
-    await channel.send("💰 **Crypto Prices (USD)**\n" + "\n".join(lines))
+    # Build an embedded message for visual flair
+    embed = discord.Embed(
+        title="💰 Crypto Prices (USD)",
+        color=discord.Color.dark_gold(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    for coin, info in data.items():
+        usd = info.get('usd')
+        price_str = f"${usd:,}" if usd is not None else "N/A"
+        embed.add_field(
+            name=coin.capitalize(),
+            value=f"**{price_str}**",
+            inline=True,
+        )
+    embed.set_footer(text="Data provided by CoinGecko")
+    await channel.send(embed=embed)
 
 # Commands
 @bot.command()

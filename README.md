@@ -25,7 +25,8 @@ Steps:
    - `DISCORD_BOT_TOKEN` (required)
    - `OPENAI_API_KEY` (required for AI prompts)
    - `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` (required for `!music` command)
-   - (Optional) `SPOTIFY_TOP_PLAYLIST`, `SPOTIFY_VIRAL_PLAYLIST` to customize displayed playlists (defaults provided)
+   - `SPOTIFY_TOP_PLAYLIST` (optional; default: `37i9dQZF1DXcBWIGoYBM5M`)
+   - `SPOTIFY_VIRAL_PLAYLIST` (optional; default: `37i9dQZEVXbMDoHDwVN2tF`)
    - (Optional) `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.
 5. **Persisting the SQLite database:**
    - Railway containers are ephemeral, so mount a Persistent Volume at `/data`.

@@ -828,13 +828,20 @@ async def music(ctx):
         top_pl   = os.getenv('SPOTIFY_TOP_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
         viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST', '37i9dQZEVXbMDoHDwVN2tF')
         hdr = {'Authorization': f'Bearer {token}'}
+        top_data = []
+        viral_data = []
+        # Fetch top hits
         top_resp = await session.get(f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10', headers=hdr)
+        if top_resp.status == 200:
+            top_data = (await top_resp.json()).get('items', [])
+        else:
+            print(f"[❌] Spotify top playlist error {top_resp.status}: {(await top_resp.text())}")
+        # Fetch viral tracks
         viral_resp = await session.get(f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10', headers=hdr)
-        if top_resp.status != 200 or viral_resp.status != 200:
-            print(f"[❌] Spotify playlist error: top {top_resp.status}, viral {viral_resp.status}")
-            return await ctx.send("⚠️ Failed to fetch Spotify playlist data.")
-        top_data = (await top_resp.json()).get('items', [])
-        viral_data = (await viral_resp.json()).get('items', [])
+        if viral_resp.status == 200:
+            viral_data = (await viral_resp.json()).get('items', [])
+        else:
+            print(f"[❌] Spotify viral playlist error {viral_resp.status}: {(await viral_resp.text())}")
 
     def fmt(items):
         out = []

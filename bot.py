@@ -826,34 +826,12 @@ async def music(ctx, market: str = None):
         token = (await resp.json()).get('access_token')
         hdr = {'Authorization': f'Bearer {token}'}
 
-        # Fetch the Top Lists category playlists to find the market-specific chart
-        base = 'https://api.spotify.com/v1'
-        cat_resp = await session.get(
-            f"{base}/browse/categories/toplists/playlists?country={market}&limit=50",
-            headers=hdr
+        # Directly fetch the official Top Hits US playlist (override via env) for a consistent Top 10
+        pl_id = os.getenv('SPOTIFY_TOP_HITS_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
+        url = (
+            f"https://api.spotify.com/v1/playlists/{pl_id}/tracks"
+            f"?limit=10&market={market}"
         )
-        cat_json = await cat_resp.json()
-        items = cat_json.get('playlists', {}).get('items', [])
-        # Attempt to pick the market-specific chart; fallback to first or default Top Hits
-        chart = None
-        if items:
-            # Prefer a playlist whose name ends with the market code
-            chart = next((p for p in items if p.get('name', '').endswith(f" {market}")), None)
-            if not chart:
-                chart = items[0]
-        fallback_global = False
-        if chart:
-            pl_id = chart['id']
-        else:
-            # Fallback to the global Top Hits US playlist (no market filter)
-            pl_id = os.getenv('SPOTIFY_TOP_HITS_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
-            fallback_global = True
-            await ctx.send(f"⚠️ Using default Top Hits playlist (US) since no chart found for {market}.")
-
-        # Retrieve top 10 tracks; omit market param if using global fallback
-        url = f"{base}/playlists/{pl_id}/tracks?limit=10"
-        if not fallback_global:
-            url += f"&market={market}"
         tracks_resp = await session.get(url, headers=hdr)
         tracks_json = await tracks_resp.json()
         tracks = tracks_json.get('items', []) if tracks_resp.status == 200 else []

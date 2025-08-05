@@ -800,60 +800,6 @@ async def scrape_error(ctx, error):
 
 
 
-@bot.command(name='music')
-async def music(ctx):
-    """Fetch top Spotify tracks and viral tracks via the Spotify Web API and post to #music-share."""
-    cid = os.getenv('SPOTIFY_CLIENT_ID')
-    secret = os.getenv('SPOTIFY_CLIENT_SECRET')
-    if not cid or not secret:
-        return await ctx.send("❌ Spotify client ID/secret not configured.")
-    await ctx.send("🎵 Fetching Spotify music data…")
-    # Obtain OAuth token
-    token_url = 'https://accounts.spotify.com/api/token'
-    auth = base64.b64encode(f"{cid}:{secret}".encode()).decode()
-    async with aiohttp.ClientSession() as session:
-        resp = await session.post(
-            token_url,
-            data={'grant_type': 'client_credentials'},
-            headers={'Authorization': f'Basic {auth}'},
-        )
-        data = await resp.json()
-        token = data.get('access_token')
-        if not token:
-            print(f"[❌] Spotify auth error: {data}")
-            return await ctx.send("⚠️ Spotify authentication failed.")
-
-        # Fetch Top Hits & Viral playlists (default IDs)
-        top_pl   = os.getenv('SPOTIFY_TOP_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
-        viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST', '37i9dQZEVXbMDoHDwVN2tF')
-        hdr = {'Authorization': f'Bearer {token}'}
-        top_data   = (await (await session.get(f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10', headers=hdr)).json()).get('items', [])
-        viral_data = (await (await session.get(f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10', headers=hdr)).json()).get('items', [])
-
-    def fmt(items):
-        out = []
-        for it in items:
-            t = it.get('track', {})
-            name = t.get('name')
-            arts = ', '.join(a.get('name') for a in t.get('artists', []))
-            out.append(f"**{name}** by *{arts}*")
-        return out
-
-    channel = bot.get_channel(MUSIC_SHARE_CHANNEL_ID)
-    if not channel:
-        return await ctx.send("❌ Music-share channel not found. Check configuration.")
-    now = datetime.now(timezone.utc)
-    emb1 = discord.Embed(
-        title="🎶 Top 10 Spotify Tracks",
-        description="\n".join(fmt(top_data)) or "No data",
-        color=discord.Color.green(), timestamp=now
-    )
-    emb2 = discord.Embed(
-        title="📈 Viral 10 Spotify Tracks",
-        description="\n".join(fmt(viral_data)) or "No data",
-        color=discord.Color.blue(), timestamp=now
-    )
-    await channel.send(embeds=[emb1, emb2])
 
 @bot.command(name='chat')
 async def chat(ctx, *, prompt: str = None):

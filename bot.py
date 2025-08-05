@@ -401,32 +401,37 @@ async def crypto_price_tracker():
     if not data:
         print("⚠️ Failed to fetch crypto market data.")
         return
-    # Consolidate prices into a single embed with inline fields for scrolling view
+    # Send one embed per coin with its logo and 24h change (scrollable carousel)
+    embeds = []
     now = datetime.now(timezone.utc)
-    embed = discord.Embed(
-        title="💰 Crypto Prices (USD)",
-        color=discord.Color.dark_gold(),
-        timestamp=now,
-    )
     for coin in data:
-        symbol = coin.get('symbol', '').upper()
         name = coin.get('name', '').title()
+        symbol = coin.get('symbol', '').upper()
         price = coin.get('current_price')
         change24 = coin.get('price_change_percentage_24h')
-        # Format value and change
-        price_str = f"**${price:,.2f}**" if price is not None else "N/A"
+        image = coin.get('image')
+        embed = discord.Embed(
+            title=f"{symbol} - {name}",
+            color=discord.Color.dark_gold(),
+            timestamp=now,
+        )
+        if image:
+            embed.set_thumbnail(url=image)
+        embed.add_field(
+            name="Price (USD)",
+            value=f"**${price:,}**" if price is not None else "N/A",
+            inline=False,
+        )
         if change24 is not None:
             arrow = "📈" if change24 >= 0 else "📉"
-            change_str = f"{arrow} {change24:+.2f}%"
-        else:
-            change_str = "N/A"
-        embed.add_field(
-            name=f"{symbol} - {name}",
-            value=f"{price_str}\n{change_str}",
-            inline=True,
-        )
-    embed.set_footer(text="Data provided by CoinGecko")
-    await channel.send(embed=embed)
+            embed.add_field(
+                name="24h Change",
+                value=f"{arrow} {change24:+.2f}%",
+                inline=False,
+            )
+        embed.set_footer(text="Data provided by CoinGecko")
+        embeds.append(embed)
+    await channel.send(embeds=embeds)
 
 # Commands
 @bot.command()

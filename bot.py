@@ -390,10 +390,13 @@ async def crypto_price_tracker():
     if not channel:
         print("⚠️ Crypto channel not found. Check CRYPTO_CHANNEL_ID.")
         return
-    # Fetch market data including images and 24h change for styling
+    # Fetch top cryptocurrencies by market cap (includes images and 24h change)
+    # Adjust 'per_page' to include more coins in the carousel
+    per_page = int(os.getenv('CRYPTO_TOP_N', '10'))
     markets_url = (
         "https://api.coingecko.com/api/v3/coins/markets"
-        "?vs_currency=usd&ids=bitcoin,ethereum,solana"
+        f"?vs_currency=usd"
+        f"&order=market_cap_desc&per_page={per_page}&page=1&sparkline=false"
     )
     async with aiohttp.ClientSession() as session:
         async with session.get(markets_url) as resp:

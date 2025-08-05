@@ -841,6 +841,12 @@ async def music(ctx):
     top_data = (await top_resp.json()).get('items', []) if top_resp.status == 200 else []
     viral_data = (await viral_resp.json()).get('items', []) if viral_resp.status == 200 else []
 
+    # Debug: report HTTP statuses and item counts to Discord for troubleshooting
+    debug_lines = []
+    debug_lines.append(f"Top playlist ID: {top_pl} (status {top_resp.status}, items {len(top_data)})")
+    debug_lines.append(f"Viral playlist ID: {viral_pl} (status {viral_resp.status}, items {len(viral_data)})")
+    await ctx.send("```" + "\n".join(debug_lines) + "```")
+
     def fmt(items):
         out = []
         for it in items:

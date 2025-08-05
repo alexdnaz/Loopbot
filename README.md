@@ -61,4 +61,9 @@ Spotify now enforces stricter redirect URI validation as of November 2:
 
 Be sure to register your redirect URIs accordingly in the Spotify Developer Dashboard under your app settings.
 
+**Tip:** Some public playlists may require a market parameter to be supplied when fetching tracks. For example, the default Top Hits/Viral Hits playlists will work reliably with:
+```
+GET https://api.spotify.com/v1/playlists/{playlist_id}/tracks?limit=10&market=US
+```
+
 **Note:** The `!music` command uses Spotify's Client Credentials flow, which only supports read-access to **public** playlists. Private or collaborative playlists will not be accessible and will result in empty track lists.

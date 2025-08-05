@@ -829,8 +829,13 @@ async def music(ctx):
     # Debug: show which playlist IDs are being used
     print(f"[🔧] Using Spotify playlist IDs: top={top_pl}, viral={viral_pl}")
     async with aiohttp.ClientSession() as session:
-        top_resp = await session.get(f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10', headers=hdr)
-        viral_resp = await session.get(f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10', headers=hdr)
+        # Include market=US to ensure track availability for US-based public playlists
+        top_resp = await session.get(
+            f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10&market=US', headers=hdr
+        )
+        viral_resp = await session.get(
+            f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10&market=US', headers=hdr
+        )
     # Parse JSON body for both playlists
     top_json = await top_resp.json()
     viral_json = await viral_resp.json()

@@ -14,6 +14,7 @@ import random
 import re
 
 from bs4 import BeautifulSoup
+import csv
 
 # Nitter instances (fallback) for lightweight Twitter scraping
 NITTER_INSTANCES = [
@@ -97,8 +98,9 @@ VOTING_HALL_CHANNEL_ID = 1393808682407428127 # voting-hall
 # general-chat: 1393811389579268206
 # introductions: 1393811501013536889
 # memes-and-vibes: 1393811645922545745
+## Community category
 # music-share: 1393811741715988540
-
+MUSIC_SHARE_CHANNEL_ID = 1393811741715988540  # music-share
 RULES_CHANNEL_ID = 1396655144804024380
 MODERATOR_ONLY_CHANNEL_ID = 1396655144804024383
 VOICE_CATEGORY_ID = 1394026685975887993
@@ -796,6 +798,54 @@ async def scrape_error(ctx, error):
     else:
         raise error
 
+
+@bot.command(name='music')
+async def music(ctx):
+    """Fetch top daily Spotify tracks and fastest-growing weekly songs and post to music-share."""
+    await ctx.send("🎵 Fetching Spotify charts…")
+    headers = {"User-Agent": "Mozilla/5.0"}
+    async with aiohttp.ClientSession() as session:
+        top_url = "https://spotifycharts.com/regional/global/daily/latest/download"
+        growth_url = "https://spotifycharts.com/regional/global/weekly/latest/download"
+        try:
+            top_txt = await (await session.get(top_url, headers=headers)).text()
+            growth_txt = await (await session.get(growth_url, headers=headers)).text()
+        except Exception as e:
+            print(f"[❌] Spotify charts error: {e}")
+            return await ctx.send("⚠️ Unable to fetch Spotify charts.")
+
+    top_songs = []
+    for i, row in enumerate(top_txt.splitlines()):
+        if i == 0 or not row:
+            continue
+        cols = list(csv.reader([row]))[0]
+        if len(cols) < 3 or len(top_songs) >= 10:
+            break
+        top_songs.append(f"**{cols[1].strip()}** by *{cols[2].strip()}*")
+    growth_songs = []
+    for i, row in enumerate(growth_txt.splitlines()):
+        if i == 0 or not row:
+            continue
+        cols = list(csv.reader([row]))[0]
+        if len(cols) < 6 or len(growth_songs) >= 10:
+            break
+        growth_songs.append(f"**{cols[1].strip()}** by *{cols[2].strip()}* ({cols[5].strip()}%)")
+
+    channel = bot.get_channel(MUSIC_SHARE_CHANNEL_ID)
+    if not channel:
+        return await ctx.send("❌ Music-share channel not found. Check configuration.")
+    now = datetime.now(timezone.utc)
+    emb1 = discord.Embed(
+        title="🎶 Top 10 Spotify Tracks (Daily)",
+        description="\n".join(top_songs) or "No data",
+        color=discord.Color.green(), timestamp=now,
+    )
+    emb2 = discord.Embed(
+        title="📈 Fastest Growing Songs (Weekly)",
+        description="\n".join(growth_songs) or "No data",
+        color=discord.Color.blue(), timestamp=now,
+    )
+    await channel.send(embeds=[emb1, emb2])
 
 @bot.command(name='chat')
 async def chat(ctx, *, prompt: str = None):

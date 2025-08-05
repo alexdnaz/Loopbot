@@ -60,6 +60,6 @@ Spotify now enforces stricter redirect URI validation as of November 2:
 
 Be sure to register your redirect URIs accordingly in the Spotify Developer Dashboard under your app settings.
 
-**Tip:** The bot automatically finds the Top Lists playlist for your market and fetches its top 10 tracks. You can override the default market (`US`) via the `!music <market>` argument or `SPOTIFY_MARKET` env var.
+**Tip:** The bot automatically finds the Top Lists playlist for your market and fetches its top 10 tracks. If it can’t find a market-specific chart, it falls back to the global US Top Hits. You can override the default market (`US`) via the `!music <market>` argument or `SPOTIFY_MARKET` env var.
 
 **Note:** The `!music` command uses Spotify's Client Credentials flow, which only supports read-access to **public** playlists. Private or collaborative playlists will not be accessible and will result in empty track lists.

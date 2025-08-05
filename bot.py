@@ -834,13 +834,19 @@ async def music(ctx, market: str = None):
         )
         cat_json = await cat_resp.json()
         items = cat_json.get('playlists', {}).get('items', [])
-        # Find the playlist ending with the market code
-        chart = next((p for p in items if p.get('name', '').endswith(f" {market}")), None)
-        if not chart and items:
-            chart = items[0]
-        if not chart:
-            return await ctx.send(f"⚠️ Could not find Toplist playlist for market {market}.")
-        pl_id = chart['id']
+        # Attempt to pick the market-specific chart; fallback to first or default Top Hits
+        chart = None
+        if items:
+            # Prefer a playlist whose name ends with the market code
+            chart = next((p for p in items if p.get('name', '').endswith(f" {market}")), None)
+            if not chart:
+                chart = items[0]
+        if chart:
+            pl_id = chart['id']
+        else:
+            # Fallback to the global Top Hits US playlist
+            pl_id = os.getenv('SPOTIFY_TOP_HITS_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
+            await ctx.send(f"⚠️ Using default Top Hits playlist (US) since no chart found for {market}.")
 
         # Retrieve top 10 tracks from that chart playlist
         tracks_resp = await session.get(

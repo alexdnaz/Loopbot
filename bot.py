@@ -870,41 +870,6 @@ async def music(ctx, market: str = None):
     channel = bot.get_channel(MUSIC_SHARE_CHANNEL_ID)
     await channel.send(embed=embed)
     await ctx.send("✅ Posted Top 10 Spotify Tracks!")
-        out = []
-        for it in items:
-            t = it.get('track', {})
-            name = t.get('name', '<unknown>')
-            arts = ', '.join(a.get('name') for a in t.get('artists', [])) or '<unknown>'
-            out.append(f"**{name}** by *{arts}*")
-        return out
-
-    channel = bot.get_channel(MUSIC_SHARE_CHANNEL_ID)
-    now = datetime.now(timezone.utc)
-    tracks1 = fmt(top_data)
-    tracks2 = fmt(viral_data)
-    if not tracks1 and not tracks2:
-        return await ctx.send(
-            "⚠️ No Spotify tracks found. Check SPOTIFY_TOP_PLAYLIST/SPOTIFY_VIRAL_PLAYLIST "
-            "and SPOTIFY_CLIENT_ID/SPOTIFY_CLIENT_SECRET configuration."
-        )
-    embeds = []
-    if tracks1:
-        embeds.append(discord.Embed(
-            title="🎶 Top 10 Spotify Tracks",
-            description="\n".join(tracks1), color=discord.Color.green(), timestamp=now
-        ))
-    else:
-        await ctx.send("⚠️ Failed to retrieve Top 10 Spotify Tracks.")
-    if tracks2:
-        embeds.append(discord.Embed(
-            title="📈 Viral 10 Spotify Tracks",
-            description="\n".join(tracks2), color=discord.Color.blue(), timestamp=now
-        ))
-    else:
-        await ctx.send("⚠️ Failed to retrieve Viral 10 Spotify Tracks.")
-    if embeds:
-        await channel.send(embeds=embeds)
-
 
 @bot.command(name='chat')
 async def chat(ctx, *, prompt: str = None):

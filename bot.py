@@ -436,7 +436,9 @@ async def crypto_price_tracker():
         embed.set_footer(text="Data provided by CoinGecko")
         embeds.append(embed)
 
-    await channel.send(embeds=embeds)
+    # Discord limits to max 10 embeds per message; send in chunks if needed
+    for chunk in (embeds[i:i+10] for i in range(0, len(embeds), 10)):
+        await channel.send(embeds=chunk)
 
 
 # Commands

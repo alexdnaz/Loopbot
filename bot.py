@@ -803,6 +803,13 @@ async def scrape_error(ctx, error):
 @bot.command(name='music')
 async def music(ctx):
     """Fetch Top Hits & Viral Hits via Spotify Web API and post to #music-share."""
+    # Show which code version is running (commit SHA)
+    try:
+        import subprocess
+        commit_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+    except Exception:
+        commit_sha = 'unknown'
+    await ctx.send(f'🔖 Code commit: {commit_sha}')
     cid = os.getenv('SPOTIFY_CLIENT_ID')
     secret = os.getenv('SPOTIFY_CLIENT_SECRET')
     if not cid or not secret:

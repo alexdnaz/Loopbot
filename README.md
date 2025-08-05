@@ -61,8 +61,8 @@ Spotify now enforces stricter redirect URI validation as of November 2:
 
 Be sure to register your redirect URIs accordingly in the Spotify Developer Dashboard under your app settings.
 
-**Tip:** Public playlists are user‑configurable. Include a market parameter to ensure track availability for a given region:
-```
+**Tip:** Public playlists are user‑configurable. Include a `market` parameter to ensure track availability for a given region:
+```http
 GET https://api.spotify.com/v1/playlists/{playlist_id}/tracks?limit=10&market=US
 ```
 

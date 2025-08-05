@@ -816,24 +816,32 @@ async def music(ctx):
             data={'grant_type': 'client_credentials'},
             headers={'Authorization': f'Basic {auth}'},
         )
-        data = await resp.json()
-        token = data.get('access_token')
+        if resp.status != 200:
+            err = await resp.text()
+            print(f"[❌] Spotify auth HTTP {resp.status}: {err}")
+            return await ctx.send("⚠️ Spotify authentication failed.")
+        token = (await resp.json()).get('access_token')
         if not token:
-            print(f"[❌] Spotify auth error: {data}")
+            print(f"[❌] Spotify auth missing token: {(await resp.json())}")
             return await ctx.send("⚠️ Spotify authentication failed.")
 
         top_pl   = os.getenv('SPOTIFY_TOP_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
         viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST', '37i9dQZEVXbMDoHDwVN2tF')
         hdr = {'Authorization': f'Bearer {token}'}
-        top_data   = (await (await session.get(f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10', headers=hdr)).json()).get('items', [])
-        viral_data = (await (await session.get(f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10', headers=hdr)).json()).get('items', [])
+        top_resp = await session.get(f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10', headers=hdr)
+        viral_resp = await session.get(f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10', headers=hdr)
+        if top_resp.status != 200 or viral_resp.status != 200:
+            print(f"[❌] Spotify playlist error: top {top_resp.status}, viral {viral_resp.status}")
+            return await ctx.send("⚠️ Failed to fetch Spotify playlist data.")
+        top_data = (await top_resp.json()).get('items', [])
+        viral_data = (await viral_resp.json()).get('items', [])
 
     def fmt(items):
         out = []
         for it in items:
             t = it.get('track', {})
-            name = t.get('name')
-            arts = ', '.join(a.get('name') for a in t.get('artists', []))
+            name = t.get('name') or '<unknown>'
+            arts = ', '.join(a.get('name') for a in t.get('artists', [])) or '<unknown>'
             out.append(f"**{name}** by *{arts}*")
         return out
 
@@ -841,15 +849,19 @@ async def music(ctx):
     if not channel:
         return await ctx.send("❌ Music-share channel not found. Check configuration.")
     now = datetime.now(timezone.utc)
+    tracks1 = fmt(top_data)
+    tracks2 = fmt(viral_data)
+    if not tracks1 and not tracks2:
+        return await ctx.send("⚠️ No Spotify tracks found. Check playlist IDs or API credentials.")
     emb1 = discord.Embed(
         title="🎶 Top 10 Spotify Tracks",
-        description="\n".join(fmt(top_data)) or "No data",
-        color=discord.Color.green(), timestamp=now
+        description="\n".join(tracks1) or "No data",
+        color=discord.Color.green(), timestamp=now,
     )
     emb2 = discord.Embed(
         title="📈 Viral 10 Spotify Tracks",
-        description="\n".join(fmt(viral_data)) or "No data",
-        color=discord.Color.blue(), timestamp=now
+        description="\n".join(tracks2) or "No data",
+        color=discord.Color.blue(), timestamp=now,
     )
     await channel.send(embeds=[emb1, emb2])
 

@@ -803,13 +803,6 @@ async def scrape_error(ctx, error):
 @bot.command(name='music')
 async def music(ctx):
     """Fetch Top Hits & Viral Hits via Spotify Web API and post to #music-share."""
-    # Show which code version is running (commit SHA)
-    try:
-        import subprocess
-        commit_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-    except Exception:
-        commit_sha = 'unknown'
-    await ctx.send(f'🔖 Code commit: {commit_sha}')
     cid = os.getenv('SPOTIFY_CLIENT_ID')
     secret = os.getenv('SPOTIFY_CLIENT_SECRET')
     if not cid or not secret:
@@ -830,19 +823,19 @@ async def music(ctx):
         token = (await resp.json()).get('access_token')
 
     hdr = {'Authorization': f'Bearer {token}'}
-    # Use default public Top Hits & Viral Hits playlists if env vars are unset or empty
-    top_pl = os.getenv('SPOTIFY_TOP_PLAYLIST') or '37i9dQZF1DXcBWIGoYBM5M'
-    viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST') or '37i9dQZEVXbMDoHDwVN2tF'
-    # Debug: show which playlist IDs are being used
-    print(f"[🔧] Using Spotify playlist IDs: top={top_pl}, viral={viral_pl}")
+    # Require explicit public playlists to avoid outdated defaults
+    top_pl = os.getenv('SPOTIFY_TOP_PLAYLIST')
+    viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST')
+    if not top_pl or not viral_pl:
+        return await ctx.send(
+            "⚠️ Please configure SPOTIFY_TOP_PLAYLIST and SPOTIFY_VIRAL_PLAYLIST "
+            "to the IDs of public Spotify playlists."
+        )
     async with aiohttp.ClientSession() as session:
-        # Include market=US to ensure track availability for US-based public playlists
-        top_resp = await session.get(
-            f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10&market=US', headers=hdr
-        )
-        viral_resp = await session.get(
-            f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10&market=US', headers=hdr
-        )
+        # Include market=US to ensure track availability for public US playlists
+        base_url = 'https://api.spotify.com/v1/playlists'
+        top_resp = await session.get(f"{base_url}/{top_pl}/tracks?limit=10&market=US", headers=hdr)
+        viral_resp = await session.get(f"{base_url}/{viral_pl}/tracks?limit=10&market=US", headers=hdr)
     # Parse JSON body for both playlists
     top_json = await top_resp.json()
     viral_json = await viral_resp.json()

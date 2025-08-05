@@ -25,8 +25,8 @@ Steps:
    - `DISCORD_BOT_TOKEN` (required)
    - `OPENAI_API_KEY` (required for AI prompts)
    - `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` (required for `!music` command)
-   - `SPOTIFY_TOP_PLAYLIST` (optional; default: `37i9dQZF1DXcBWIGoYBM5M`; if unset or blank, falls back to this)
-   - `SPOTIFY_VIRAL_PLAYLIST` (optional; default: `37i9dQZEVXbMDoHDwVN2tF`; if unset or blank, falls back to this)
+   - `SPOTIFY_TOP_PLAYLIST` (required; the ID of a public Spotify playlist to fetch as "Top Hits")
+   - `SPOTIFY_VIRAL_PLAYLIST` (required; the ID of a public Spotify playlist to fetch as "Viral Hits")
    - (Optional) `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.
 5. **Persisting the SQLite database:**
    - Railway containers are ephemeral, so mount a Persistent Volume at `/data`.
@@ -61,7 +61,7 @@ Spotify now enforces stricter redirect URI validation as of November 2:
 
 Be sure to register your redirect URIs accordingly in the Spotify Developer Dashboard under your app settings.
 
-**Tip:** Some public playlists may require a market parameter to be supplied when fetching tracks. For example, the default Top Hits/Viral Hits playlists will work reliably with:
+**Tip:** Public playlists are user‑configurable. Include a market parameter to ensure track availability for a given region:
 ```
 GET https://api.spotify.com/v1/playlists/{playlist_id}/tracks?limit=10&market=US
 ```

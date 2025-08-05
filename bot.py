@@ -455,103 +455,46 @@ async def how(ctx):
 
 @bot.command()
 async def submit(ctx, link: str = None):
-    """Accept a URL or an attached file (audio/image/video/other) as a submission and award points."""
-    # If user replied to a message, use that message's attachment or text
+    """Submit a URL or attach a file (image/video/audio/etc.) to the submissions channel."""
+    # Determine content to forward: reply, attachment, or provided link
     ref = ctx.message.reference
+    attachments = None
     if ref and ref.message_id:
         ref_chan = bot.get_channel(ref.channel_id) or ctx.channel
         ref_msg = await ref_chan.fetch_message(ref.message_id)
-        # Only allow submitting your own messages
-        if ref_msg.author.id != ctx.author.id:
-            await ctx.send("❌ You can only submit your own attachments or messages.")
-            return
+        if ref_msg.author != ctx.author:
+            return await ctx.send("❌ You can only submit your own messages.")
         attachments = ref_msg.attachments
         link = None if attachments else ref_msg.content.strip()
     else:
         attachments = ctx.message.attachments
-    # If no attachment/reply/link, try to find recent self-posted attachments as fallback
-    if not attachments and link is None and not (ref and ref.message_id):
+    # Fallback: find recent self-attachments if none on this message
+    if not attachments and not link:
         async for prev in ctx.channel.history(limit=10, before=ctx.message):
             if prev.author == ctx.author and prev.attachments:
                 attachments = prev.attachments
-                # Keep ref for consistency (logs/threads)
-                ref = prev.reference or ctx.message.reference
                 break
-    # Attachment path: accept any file (audio/image/video/etc.)
+
+    submissions_chan = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
+    if not submissions_chan:
+        return await ctx.send("❌ Submissions channel not found. Check configuration.")
+
+    # Forward to submissions channel
     if attachments:
-        # React to the user's attachment message for voting (thumbs-up/thumbs-down)
-        await ctx.message.add_reaction("👍")
-        await ctx.message.add_reaction("👎")
-        print(f"📸 Submission by {ctx.author} | MsgID: {ctx.message.id}")
-        att = attachments[0]
-        now_iso = datetime.now(timezone.utc).isoformat()
-        # record submission (tags + orig message for reply-votes)
-        tag_list = [w.lstrip('#') for w in ctx.message.content.split() if w.startswith('#')]
-        tags = ' '.join(tag_list)
-        c.execute(
-            "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id, tags) VALUES (?, ?, ?, ?, ?)",
-            (str(ctx.author.id), att.filename, now_iso, ctx.message.id, tags)
+        sent = await submissions_chan.send(
+            f"📥 Submission from {ctx.author.mention}",
+            file=await attachments[0].to_file()
         )
-        sub_id = c.lastrowid
-        conn.commit()
-        # Award 1 submission point
-        c.execute(
-            "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
-            (str(ctx.author.id), str(ctx.author.id), 1)
+    elif link:
+        sent = await submissions_chan.send(
+            f"📥 Submission from {ctx.author.mention}: {link}"
         )
-        conn.commit()
-        sub_ch = bot.get_channel(VOTING_HALL_CHANNEL_ID)
-        if sub_ch:
-            sent = await sub_ch.send(f"📥 **File Submission from {ctx.author.mention}:**", file=await att.to_file())
-            # Pre-add voting reactions for neutral starting point
-            await sent.add_reaction("👍")
-            await sent.add_reaction("👎")
-            # Only record message ID for voting
-            c.execute(
-                "UPDATE audio_submissions SET message_id = ? WHERE id = ?",
-                (sent.id, sub_id)
-            )
-            conn.commit()
-        # Confirm submission; voting via reactions only
-        await ctx.send("✅ File submission accepted! Voting is now open.")
-        return
-    # URL submission path: validate link is non-empty and not a bot command
-    if not link or link.strip().startswith(bot.command_prefix):
-        await ctx.send("❌ Please provide a valid URL (not a bot command) or attach a file.")
-        return
-    now_iso = datetime.now(timezone.utc).isoformat()
-    c.execute(
-        "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, ?, ?)",
-        (
-            str(ctx.author.id),
-            link,
-            now_iso,
-            ' '.join([w.lstrip('#') for w in ctx.message.content.split()[1:] if w.startswith('#')]),
-            ctx.message.id,
-        )
+    else:
+        return await ctx.send("❌ Please provide a link or attach a file to submit.")
+
+    await ctx.send(
+        f"✅ Submission posted in {submissions_chan.mention}. Voting will open shortly."
     )
-    sub_id = c.lastrowid
-    conn.commit()
-    # Award 1 submission point
-    c.execute(
-        "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
-        (str(ctx.author.id), str(ctx.author.id), 1)
-    )
-    conn.commit()
-    sub_ch = bot.get_channel(VOTING_HALL_CHANNEL_ID)
-    if sub_ch:
-        sent = await sub_ch.send(f"📥 **Link Submission from {ctx.author.mention}:** {link}")  # explicit_link preserved
-        # Pre-add voting reactions for neutral starting point
-        await sent.add_reaction("👍")
-        await sent.add_reaction("👎")
-        # Only record message ID for voting
-        c.execute(
-            "UPDATE link_submissions SET message_id = ? WHERE id = ?",
-            (sent.id, sub_id)
-        )
-        conn.commit()
-    # Confirm submission; voting via reactions only
-    await ctx.send("✅ Link submission accepted! Voting is now open.")
 
 @bot.command()
 async def rank(ctx):

@@ -586,11 +586,12 @@ async def vote(ctx, score: int = None):
     # Identify submission by reply or thread context (audio OR link)
     sub_id = None
     ref = ctx.message.reference
+    # Allow voting only on the posted submission in voting-hall (message_id)
     if ref and ref.message_id:
         for tbl in ('audio_submissions', 'link_submissions'):
             c.execute(
-                f"SELECT id FROM {tbl} WHERE message_id = ? OR orig_message_id = ?",
-                (ref.message_id, ref.message_id),
+                f"SELECT id FROM {tbl} WHERE message_id = ?",
+                (ref.message_id,)
             )
             row = c.fetchone()
             if row:
@@ -624,7 +625,7 @@ async def vote(ctx, score: int = None):
                     break
     if not sub_id:
         await ctx.send(
-            "❌ You can only vote by replying to a submission (file or link) or inside its thread."
+            "❌ You can only vote by replying to the submission message in the #voting-hall."
         )
         return
     if not 1 <= score <= 10:

@@ -45,3 +45,15 @@ LoopBot can now post Bitcoin, Ethereum, and Solana prices on a schedule.
 - To enable: set a volume or `DB_PATH` as above and redeploy.
 - Posts go to channel ID `1401992445251817472` on the hour, every hour by default.
 - To adjust interval (in hours), set `CRYPTO_INTERVAL_HOURS` in your env.
+
+## Spotify OAuth & Redirect URI Requirements
+
+Spotify now enforces stricter redirect URI validation as of November 2:
+
+- **HTTPS is required** for all redirect URIs, **except** when using a loopback address.
+- For loopback URIs, use the explicit IPv4 or IPv6 form:
+  - `http://127.0.0.1:<PORT>`
+  - `http://[::1]:<PORT>`
+- The hostname `localhost` is **not** allowed as a redirect URI.
+
+Be sure to register your redirect URIs accordingly in the Spotify Developer Dashboard under your app settings.

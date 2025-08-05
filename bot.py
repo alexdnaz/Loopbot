@@ -828,6 +828,13 @@ async def music(ctx):
     async with aiohttp.ClientSession() as session:
         top_resp = await session.get(f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10', headers=hdr)
         viral_resp = await session.get(f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10', headers=hdr)
+    # Log Spotify API errors for visibility
+    if top_resp.status != 200:
+        err = await top_resp.text()
+        print(f"[❌] Spotify top playlist error {top_resp.status}: {err}")
+    if viral_resp.status != 200:
+        err = await viral_resp.text()
+        print(f"[❌] Spotify viral playlist error {viral_resp.status}: {err}")
     top_data = (await top_resp.json()).get('items', []) if top_resp.status == 200 else []
     viral_data = (await viral_resp.json()).get('items', []) if viral_resp.status == 200 else []
 
@@ -845,7 +852,10 @@ async def music(ctx):
     tracks1 = fmt(top_data)
     tracks2 = fmt(viral_data)
     if not tracks1 and not tracks2:
-        return await ctx.send("⚠️ No Spotify tracks found. Check playlist IDs or API credentials.")
+        return await ctx.send(
+            "⚠️ No Spotify tracks found. Check SPOTIFY_TOP_PLAYLIST/SPOTIFY_VIRAL_PLAYLIST "
+            "and SPOTIFY_CLIENT_ID/SPOTIFY_CLIENT_SECRET configuration."
+        )
     embeds = []
     if tracks1:
         embeds.append(discord.Embed(

@@ -24,6 +24,8 @@ Steps:
 4. In the Railway dashboard, add your environment variables:
    - `DISCORD_BOT_TOKEN` (required)
    - `OPENAI_API_KEY` (required for AI prompts)
+   - `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` (required for `!music` command)
+   - (Optional) `SPOTIFY_TOP_PLAYLIST`, `SPOTIFY_VIRAL_PLAYLIST` to customize displayed playlists (defaults provided)
    - (Optional) `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.
 5. **Persisting the SQLite database:**
    - Railway containers are ephemeral, so mount a Persistent Volume at `/data`.
@@ -57,3 +59,5 @@ Spotify now enforces stricter redirect URI validation as of November 2:
 - The hostname `localhost` is **not** allowed as a redirect URI.
 
 Be sure to register your redirect URIs accordingly in the Spotify Developer Dashboard under your app settings.
+
+**Note:** The `!music` command uses Spotify's Client Credentials flow, which only supports read-access to **public** playlists. Private or collaborative playlists will not be accessible and will result in empty track lists.

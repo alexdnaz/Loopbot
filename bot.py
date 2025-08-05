@@ -377,16 +377,6 @@ async def post_vote_summary():
         print("⚠️ Voting hall channel not found. Check VOTING_HALL_CHANNEL_ID.")
 
 
-@crypto_price_tracker.before_loop
-async def before_crypto_price_tracker():
-    # Align first run to the next quarter-hour mark (00,15,30,45 UTC)
-    await bot.wait_until_ready()
-    now = datetime.now(timezone.utc)
-    # seconds until next quarter
-    delay = ((15 - (now.minute % 15)) * 60) - now.second
-    if delay <= 0:
-        delay += 15 * 60
-    await asyncio.sleep(delay)
 
 @tasks.loop(minutes=15)
 async def crypto_price_tracker():
@@ -439,7 +429,19 @@ async def crypto_price_tracker():
             )
         embed.set_footer(text="Data provided by CoinGecko")
         embeds.append(embed)
+
     await channel.send(embeds=embeds)
+
+@crypto_price_tracker.before_loop
+async def before_crypto_price_tracker():
+    # Align first run to the next quarter-hour mark (00,15,30,45 UTC)
+    await bot.wait_until_ready()
+    now = datetime.now(timezone.utc)
+    # seconds until next quarter
+    delay = ((15 - (now.minute % 15)) * 60) - now.second
+    if delay <= 0:
+        delay += 15 * 60
+    await asyncio.sleep(delay)
 
 # Commands
 @bot.command()

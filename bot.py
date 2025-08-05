@@ -841,17 +841,20 @@ async def music(ctx, market: str = None):
             chart = next((p for p in items if p.get('name', '').endswith(f" {market}")), None)
             if not chart:
                 chart = items[0]
+        fallback_global = False
         if chart:
             pl_id = chart['id']
         else:
-            # Fallback to the global Top Hits US playlist
+            # Fallback to the global Top Hits US playlist (no market filter)
             pl_id = os.getenv('SPOTIFY_TOP_HITS_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
+            fallback_global = True
             await ctx.send(f"⚠️ Using default Top Hits playlist (US) since no chart found for {market}.")
 
-        # Retrieve top 10 tracks from that chart playlist
-        tracks_resp = await session.get(
-            f"{base}/playlists/{pl_id}/tracks?limit=10&market={market}", headers=hdr
-        )
+        # Retrieve top 10 tracks; omit market param if using global fallback
+        url = f"{base}/playlists/{pl_id}/tracks?limit=10"
+        if not fallback_global:
+            url += f"&market={market}"
+        tracks_resp = await session.get(url, headers=hdr)
         tracks_json = await tracks_resp.json()
         tracks = tracks_json.get('items', []) if tracks_resp.status == 200 else []
 

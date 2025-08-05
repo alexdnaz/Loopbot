@@ -802,7 +802,7 @@ async def scrape_error(ctx, error):
 
 @bot.command(name='music')
 async def music(ctx):
-    """Fetch top Spotify tracks and viral tracks via the Spotify Web API and post to #music-share."""
+    """Fetch Top Hits & Viral Hits via Spotify Web API and post to #music-share."""
     cid = os.getenv('SPOTIFY_CLIENT_ID')
     secret = os.getenv('SPOTIFY_CLIENT_SECRET')
     if not cid or not secret:
@@ -818,43 +818,29 @@ async def music(ctx):
         )
         if resp.status != 200:
             err = await resp.text()
-            print(f"[❌] Spotify auth HTTP {resp.status}: {err}")
+            print(f"[❌] Spotify auth error {resp.status}: {err}")
             return await ctx.send("⚠️ Spotify authentication failed.")
         token = (await resp.json()).get('access_token')
-        if not token:
-            print(f"[❌] Spotify auth missing token: {(await resp.json())}")
-            return await ctx.send("⚠️ Spotify authentication failed.")
 
-        top_pl   = os.getenv('SPOTIFY_TOP_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
-        viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST', '37i9dQZEVXbMDoHDwVN2tF')
-        hdr = {'Authorization': f'Bearer {token}'}
-        top_data = []
-        viral_data = []
-        # Fetch top hits
+    hdr = {'Authorization': f'Bearer {token}'}
+    top_pl   = os.getenv('SPOTIFY_TOP_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
+    viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST', '37i9dQZEVXbMDoHDwVN2tF')
+    async with aiohttp.ClientSession() as session:
         top_resp = await session.get(f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10', headers=hdr)
-        if top_resp.status == 200:
-            top_data = (await top_resp.json()).get('items', [])
-        else:
-            print(f"[❌] Spotify top playlist error {top_resp.status}: {(await top_resp.text())}")
-        # Fetch viral tracks
         viral_resp = await session.get(f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10', headers=hdr)
-        if viral_resp.status == 200:
-            viral_data = (await viral_resp.json()).get('items', [])
-        else:
-            print(f"[❌] Spotify viral playlist error {viral_resp.status}: {(await viral_resp.text())}")
+    top_data = (await top_resp.json()).get('items', []) if top_resp.status == 200 else []
+    viral_data = (await viral_resp.json()).get('items', []) if viral_resp.status == 200 else []
 
     def fmt(items):
         out = []
         for it in items:
             t = it.get('track', {})
-            name = t.get('name') or '<unknown>'
+            name = t.get('name', '<unknown>')
             arts = ', '.join(a.get('name') for a in t.get('artists', [])) or '<unknown>'
             out.append(f"**{name}** by *{arts}*")
         return out
 
     channel = bot.get_channel(MUSIC_SHARE_CHANNEL_ID)
-    if not channel:
-        return await ctx.send("❌ Music-share channel not found. Check configuration.")
     now = datetime.now(timezone.utc)
     tracks1 = fmt(top_data)
     tracks2 = fmt(viral_data)
@@ -862,27 +848,21 @@ async def music(ctx):
         return await ctx.send("⚠️ No Spotify tracks found. Check playlist IDs or API credentials.")
     embeds = []
     if tracks1:
-        emb1 = discord.Embed(
+        embeds.append(discord.Embed(
             title="🎶 Top 10 Spotify Tracks",
-            description="\n".join(tracks1),
-            color=discord.Color.green(), timestamp=now,
-        )
-        embeds.append(emb1)
+            description="\n".join(tracks1), color=discord.Color.green(), timestamp=now
+        ))
     else:
         await ctx.send("⚠️ Failed to retrieve Top 10 Spotify Tracks.")
     if tracks2:
-        emb2 = discord.Embed(
+        embeds.append(discord.Embed(
             title="📈 Viral 10 Spotify Tracks",
-            description="\n".join(tracks2),
-            color=discord.Color.blue(), timestamp=now,
-        )
-        embeds.append(emb2)
+            description="\n".join(tracks2), color=discord.Color.blue(), timestamp=now
+        ))
     else:
         await ctx.send("⚠️ Failed to retrieve Viral 10 Spotify Tracks.")
     if embeds:
         await channel.send(embeds=embeds)
-
-
 
 
 @bot.command(name='chat')

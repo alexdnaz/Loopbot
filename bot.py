@@ -377,13 +377,7 @@ async def post_vote_summary():
         print("⚠️ Voting hall channel not found. Check VOTING_HALL_CHANNEL_ID.")
 
 
-@tasks.loop(
-    time=[
-        dtime(hour=h, minute=m, tzinfo=timezone.utc)
-        for h in range(24)
-        for m in (0, 15, 30, 45)
-    ]
-)
+@tasks.loop(minutes=15)
 async def crypto_price_tracker():
     """Fetch and post Bitcoin, Ethereum, and Solana USD prices to the crypto channel."""
     channel = bot.get_channel(CRYPTO_CHANNEL_ID)

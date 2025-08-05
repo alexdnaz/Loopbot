@@ -860,17 +860,27 @@ async def music(ctx):
     tracks2 = fmt(viral_data)
     if not tracks1 and not tracks2:
         return await ctx.send("⚠️ No Spotify tracks found. Check playlist IDs or API credentials.")
-    emb1 = discord.Embed(
-        title="🎶 Top 10 Spotify Tracks",
-        description="\n".join(tracks1) or "No data",
-        color=discord.Color.green(), timestamp=now,
-    )
-    emb2 = discord.Embed(
-        title="📈 Viral 10 Spotify Tracks",
-        description="\n".join(tracks2) or "No data",
-        color=discord.Color.blue(), timestamp=now,
-    )
-    await channel.send(embeds=[emb1, emb2])
+    embeds = []
+    if tracks1:
+        emb1 = discord.Embed(
+            title="🎶 Top 10 Spotify Tracks",
+            description="\n".join(tracks1),
+            color=discord.Color.green(), timestamp=now,
+        )
+        embeds.append(emb1)
+    else:
+        await ctx.send("⚠️ Failed to retrieve Top 10 Spotify Tracks.")
+    if tracks2:
+        emb2 = discord.Embed(
+            title="📈 Viral 10 Spotify Tracks",
+            description="\n".join(tracks2),
+            color=discord.Color.blue(), timestamp=now,
+        )
+        embeds.append(emb2)
+    else:
+        await ctx.send("⚠️ Failed to retrieve Viral 10 Spotify Tracks.")
+    if embeds:
+        await channel.send(embeds=embeds)
 
 
 

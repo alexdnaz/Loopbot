@@ -823,8 +823,11 @@ async def music(ctx):
         token = (await resp.json()).get('access_token')
 
     hdr = {'Authorization': f'Bearer {token}'}
-    top_pl   = os.getenv('SPOTIFY_TOP_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
-    viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST', '37i9dQZEVXbMDoHDwVN2tF')
+    # Use default public Top Hits & Viral Hits playlists if env vars are unset or empty
+    top_pl = os.getenv('SPOTIFY_TOP_PLAYLIST') or '37i9dQZF1DXcBWIGoYBM5M'
+    viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST') or '37i9dQZEVXbMDoHDwVN2tF'
+    # Debug: show which playlist IDs are being used
+    print(f"[🔧] Using Spotify playlist IDs: top={top_pl}, viral={viral_pl}")
     async with aiohttp.ClientSession() as session:
         top_resp = await session.get(f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10', headers=hdr)
         viral_resp = await session.get(f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10', headers=hdr)

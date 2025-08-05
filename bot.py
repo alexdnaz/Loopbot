@@ -801,13 +801,16 @@ async def scrape_error(ctx, error):
         raise error
 
 @bot.command(name='music')
-async def music(ctx):
-    """Fetch Top Hits & Viral Hits via Spotify Web API and post to #music-share."""
+async def music(ctx, market: str = None):
+    """Fetch Top 10 Spotify Tracks for a given market (e.g. US, GB) via the Spotify Web API."""
     cid = os.getenv('SPOTIFY_CLIENT_ID')
     secret = os.getenv('SPOTIFY_CLIENT_SECRET')
     if not cid or not secret:
         return await ctx.send("❌ Spotify client ID/secret not configured.")
-    await ctx.send("🎵 Fetching Spotify music data…")
+    # Determine market code (env override or command arg)
+    market = (market or os.getenv('SPOTIFY_MARKET', 'US')).upper()
+    await ctx.send(f"🎵 Fetching Top 10 tracks for market: {market}…")
+    # Authenticate
     token_url = 'https://accounts.spotify.com/api/token'
     auth = base64.b64encode(f"{cid}:{secret}".encode()).decode()
     async with aiohttp.ClientSession() as session:
@@ -821,44 +824,52 @@ async def music(ctx):
             print(f"[❌] Spotify auth error {resp.status}: {err}")
             return await ctx.send("⚠️ Spotify authentication failed.")
         token = (await resp.json()).get('access_token')
+        hdr = {'Authorization': f'Bearer {token}'}
 
-    hdr = {'Authorization': f'Bearer {token}'}
-    # Require explicit public playlists to avoid outdated defaults
-    top_pl = os.getenv('SPOTIFY_TOP_PLAYLIST')
-    viral_pl = os.getenv('SPOTIFY_VIRAL_PLAYLIST')
-    if not top_pl or not viral_pl:
-        return await ctx.send(
-            "⚠️ Please configure SPOTIFY_TOP_PLAYLIST and SPOTIFY_VIRAL_PLAYLIST "
-            "to the IDs of public Spotify playlists."
+        # Fetch the Top Lists category playlists to find the market-specific chart
+        base = 'https://api.spotify.com/v1'
+        cat_resp = await session.get(
+            f"{base}/browse/categories/toplists/playlists?country={market}&limit=50",
+            headers=hdr
         )
-    async with aiohttp.ClientSession() as session:
-        # Include market=US to ensure track availability for public US playlists
-        base_url = 'https://api.spotify.com/v1/playlists'
-        top_resp = await session.get(f"{base_url}/{top_pl}/tracks?limit=10&market=US", headers=hdr)
-        viral_resp = await session.get(f"{base_url}/{viral_pl}/tracks?limit=10&market=US", headers=hdr)
-    # Parse JSON body for both playlists
-    top_json = await top_resp.json()
-    viral_json = await viral_resp.json()
-    top_data = top_json.get('items', []) if top_resp.status == 200 else []
-    viral_data = viral_json.get('items', []) if viral_resp.status == 200 else []
+        cat_json = await cat_resp.json()
+        items = cat_json.get('playlists', {}).get('items', [])
+        # Find the playlist ending with the market code
+        chart = next((p for p in items if p.get('name', '').endswith(f" {market}")), None)
+        if not chart and items:
+            chart = items[0]
+        if not chart:
+            return await ctx.send(f"⚠️ Could not find Toplist playlist for market {market}.")
+        pl_id = chart['id']
 
-    # Debug: report HTTP statuses, item counts, and any error payloads to Discord
-    debug_lines = []
-    debug_lines.append(
-        f"Top playlist ID: {top_pl} -> status {top_resp.status}, items {len(top_data)}"
+        # Retrieve top 10 tracks from that chart playlist
+        tracks_resp = await session.get(
+            f"{base}/playlists/{pl_id}/tracks?limit=10&market={market}", headers=hdr
+        )
+        tracks_json = await tracks_resp.json()
+        tracks = tracks_json.get('items', []) if tracks_resp.status == 200 else []
+
+    # Format and send results
+    now = datetime.now(timezone.utc)
+    if not tracks:
+        return await ctx.send(
+            f"⚠️ Failed to retrieve Top 10 for {market}. ({tracks_resp.status})"
+        )
+    lines = []
+    for it in tracks:
+        t = it.get('track', {})
+        name = t.get('name', '<unknown>')
+        arts = ', '.join(a.get('name') for a in t.get('artists', [])) or '<unknown>'
+        lines.append(f"**{name}** by *{arts}*")
+    embed = discord.Embed(
+        title=f"🎶 Top 10 Spotify Tracks ({market})",
+        description="\n".join(lines),
+        color=discord.Color.green(),
+        timestamp=now
     )
-    if top_resp.status != 200:
-        debug_lines.append(f"Error response (top): {top_json}")
-
-    debug_lines.append(
-        f"Viral playlist ID: {viral_pl} -> status {viral_resp.status}, items {len(viral_data)}"
-    )
-    if viral_resp.status != 200:
-        debug_lines.append(f"Error response (viral): {viral_json}")
-
-    await ctx.send(f"```\n{'\n'.join(debug_lines)}\n```")
-
-    def fmt(items):
+    channel = bot.get_channel(MUSIC_SHARE_CHANNEL_ID)
+    await channel.send(embed=embed)
+    await ctx.send("✅ Posted Top 10 Spotify Tracks!")
         out = []
         for it in items:
             t = it.get('track', {})

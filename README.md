@@ -25,8 +25,7 @@ Steps:
    - `DISCORD_BOT_TOKEN` (required)
    - `OPENAI_API_KEY` (required for AI prompts)
    - `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` (required for `!music` command)
-   - `SPOTIFY_TOP_PLAYLIST` (required; the ID of a public Spotify playlist to fetch as "Top Hits")
-   - `SPOTIFY_VIRAL_PLAYLIST` (required; the ID of a public Spotify playlist to fetch as "Viral Hits")
+   - `SPOTIFY_MARKET` (required; a 2-letter country code, e.g. `US`, to fetch that market's Top 10)
    - (Optional) `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.
 5. **Persisting the SQLite database:**
    - Railway containers are ephemeral, so mount a Persistent Volume at `/data`.
@@ -61,9 +60,6 @@ Spotify now enforces stricter redirect URI validation as of November 2:
 
 Be sure to register your redirect URIs accordingly in the Spotify Developer Dashboard under your app settings.
 
-**Tip:** Public playlists are user‑configurable. Include a `market` parameter to ensure track availability for a given region:
-```http
-GET https://api.spotify.com/v1/playlists/{playlist_id}/tracks?limit=10&market=US
-```
+**Tip:** The bot automatically finds the Top Lists playlist for your market and fetches its top 10 tracks. You can override the default market (`US`) via the `!music <market>` argument or `SPOTIFY_MARKET` env var.
 
 **Note:** The `!music` command uses Spotify's Client Credentials flow, which only supports read-access to **public** playlists. Private or collaborative playlists will not be accessible and will result in empty track lists.

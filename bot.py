@@ -378,9 +378,15 @@ async def post_vote_summary():
 
 
 
-@tasks.loop(minutes=15)
+@tasks.loop(
+    time=[
+        dtime(hour=h, minute=m, tzinfo=timezone.utc)
+        for h in range(24)
+        for m in (0, 15, 30, 45)
+    ]
+)
 async def crypto_price_tracker():
-    """Fetch and post Bitcoin, Ethereum, and Solana USD prices to the crypto channel."""
+    """Fetch and post top cryptocurrencies by market cap at each quarter-hour UTC."""
     channel = bot.get_channel(CRYPTO_CHANNEL_ID)
     if not channel:
         print("⚠️ Crypto channel not found. Check CRYPTO_CHANNEL_ID.")
@@ -432,16 +438,6 @@ async def crypto_price_tracker():
 
     await channel.send(embeds=embeds)
 
-@crypto_price_tracker.before_loop
-async def before_crypto_price_tracker():
-    # Align first run to the next quarter-hour mark (00,15,30,45 UTC)
-    await bot.wait_until_ready()
-    now = datetime.now(timezone.utc)
-    # seconds until next quarter
-    delay = ((15 - (now.minute % 15)) * 60) - now.second
-    if delay <= 0:
-        delay += 15 * 60
-    await asyncio.sleep(delay)
 
 # Commands
 @bot.command()

@@ -831,21 +831,27 @@ async def music(ctx):
     async with aiohttp.ClientSession() as session:
         top_resp = await session.get(f'https://api.spotify.com/v1/playlists/{top_pl}/tracks?limit=10', headers=hdr)
         viral_resp = await session.get(f'https://api.spotify.com/v1/playlists/{viral_pl}/tracks?limit=10', headers=hdr)
-    # Log Spotify API errors for visibility
-    if top_resp.status != 200:
-        err = await top_resp.text()
-        print(f"[❌] Spotify top playlist error {top_resp.status}: {err}")
-    if viral_resp.status != 200:
-        err = await viral_resp.text()
-        print(f"[❌] Spotify viral playlist error {viral_resp.status}: {err}")
-    top_data = (await top_resp.json()).get('items', []) if top_resp.status == 200 else []
-    viral_data = (await viral_resp.json()).get('items', []) if viral_resp.status == 200 else []
+    # Parse JSON body for both playlists
+    top_json = await top_resp.json()
+    viral_json = await viral_resp.json()
+    top_data = top_json.get('items', []) if top_resp.status == 200 else []
+    viral_data = viral_json.get('items', []) if viral_resp.status == 200 else []
 
-    # Debug: report HTTP statuses and item counts to Discord for troubleshooting
+    # Debug: report HTTP statuses, item counts, and any error payloads to Discord
     debug_lines = []
-    debug_lines.append(f"Top playlist ID: {top_pl} (status {top_resp.status}, items {len(top_data)})")
-    debug_lines.append(f"Viral playlist ID: {viral_pl} (status {viral_resp.status}, items {len(viral_data)})")
-    await ctx.send("```" + "\n".join(debug_lines) + "```")
+    debug_lines.append(
+        f"Top playlist ID: {top_pl} -> status {top_resp.status}, items {len(top_data)}"
+    )
+    if top_resp.status != 200:
+        debug_lines.append(f"Error response (top): {top_json}")
+
+    debug_lines.append(
+        f"Viral playlist ID: {viral_pl} -> status {viral_resp.status}, items {len(viral_data)}"
+    )
+    if viral_resp.status != 200:
+        debug_lines.append(f"Error response (viral): {viral_json}")
+
+    await ctx.send(f"```\n{'\n'.join(debug_lines)}\n```")
 
     def fmt(items):
         out = []

@@ -5,10 +5,18 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$PROJECT_ROOT/.env"
+# Load from project-root .env or fallback to cwd .env
 if [[ -f "$ENV_FILE" ]]; then
+  echo "🔍 Loading environment from $ENV_FILE"
   set -o allexport
   # shellcheck disable=SC1090
   source "$ENV_FILE"
+  set +o allexport
+elif [[ -f "$PWD/.env" ]]; then
+  echo "🔍 Loading environment from $PWD/.env"
+  set -o allexport
+  # shellcheck disable=SC1090
+  source "$PWD/.env"
   set +o allexport
 fi
 # Ensure CLIENT_ID and CLIENT_SECRET are set

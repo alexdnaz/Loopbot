@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # Retrieve a Spotify API access token via the Client Credentials flow.
 
-# Load environment variables from .env if present
-if [[ -f .env ]]; then
+# Load environment variables from .env in project root if present
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+ENV_FILE="$PROJECT_ROOT/.env"
+if [[ -f "$ENV_FILE" ]]; then
   set -o allexport
-  source .env
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
   set +o allexport
 fi
 # Ensure CLIENT_ID and CLIENT_SECRET are set

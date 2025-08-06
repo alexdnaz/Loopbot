@@ -32,7 +32,7 @@ Steps:
    ```
 5. Quickly retrieve the Top 5 tracks from the US Top Hits chart with:
    ```bash
-   ./scripts/get_top_tracks.sh [MARKET_CODE]
+   ./scripts/get_top_tracks.sh
    ```
 6. The `Procfile` tells Railway to start LoopBot as a background worker.
 4. In the Railway dashboard, add your environment variables:
@@ -75,6 +75,6 @@ Spotify now enforces stricter redirect URI validation as of November 2:
 Be sure to register your redirect URIs accordingly in the Spotify Developer Dashboard under your app settings.
 
 **Tip:** The bot now directly fetches the official Top Hits US playlist for a consistent Top 10 (override via `SPOTIFY_TOP_HITS_PLAYLIST`).
-Optionally, you can pass a market code (`!music <market>`) or set `SPOTIFY_MARKET` to annotate results, but the playlist itself remains the US Top Hits chart.
+   Optionally, you can pass a market code (`!music <market>`) or set `SPOTIFY_MARKET` to annotate results, but the playlist itself remains the US Top Hits chart; the helper always requests without a market filter to avoid errors.
 
 **Note:** The `!music` command uses Spotify's Client Credentials flow, which only supports read-access to **public** playlists. Private or collaborative playlists will not be accessible and will result in empty track lists.

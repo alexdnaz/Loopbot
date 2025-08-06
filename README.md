@@ -30,10 +30,11 @@ Steps:
    CLIENT_SECRET=<your_spotify_client_secret> \
      ./scripts/get_spotify_token.sh
    ```
-5. Quickly retrieve the Top 5 tracks from the US Top Hits chart with:
+5. Quickly retrieve the Top 5 tracks with:
    ```bash
    ./scripts/get_top_tracks.sh [MARKET_CODE]
    ```
+   If the market lookup fails, it falls back to the global US Top Hits chart.
    Omitting `MARKET_CODE` defaults to `US`.
 6. The `Procfile` tells Railway to start LoopBot as a background worker.
 4. In the Railway dashboard, add your environment variables:

@@ -39,10 +39,11 @@ MARKET="${1:-US}"
 cat_resp=$(curl -s \
   -H "Authorization: Bearer $TOKEN" \
   "https://api.spotify.com/v1/browse/categories/toplists/playlists?country=${MARKET}&limit=1")
+# Extract playlist ID; fallback to known Top Hits US ID if not present
 PL_ID=$(echo "$cat_resp" | jq -r '.playlists.items[0].id')
 if [[ -z "$PL_ID" || "$PL_ID" == "null" ]]; then
-  echo "❌ Could not locate Top Hits playlist for market $MARKET"
-  exit 1
+  echo "⚠️ Toplists category lookup failed for market $MARKET; falling back to global US Top Hits"
+  PL_ID="${SPOTIFY_TOP_HITS_PLAYLIST:-37i9dQZF1DXcBWIGoYBM5M}"
 fi
 
 # Fetch top 5 tracks for the playlist

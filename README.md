@@ -35,7 +35,7 @@ Steps:
    ./scripts/spotify.sh top-tracks [time_range] [limit]
    ```
    - `time_range`: one of `short_term` (last 4 weeks), `medium_term` (last 6 months), or `long_term` (several years); defaults to `short_term`.
-   - `limit`: number of tracks to fetch (default 5).
+   - `limit`: number of tracks to fetch (default 50).
    - Requires a user access token (via `user-token`); the script auto-launches OAuth if missing or needs a scope refresh, and saves `user_token.txt`.
 
 6. List the first 5 Spotify browse categories:

@@ -30,7 +30,7 @@ Commands:
   client-token                Acquire and cache a client-credentials access token
   user-token                  Run PKCE flow to get & cache a user access token (auto-opens browser)
   list-categories [limit]     List Spotify browse categories (default limit=5)
-  top-tracks [time_range] [n] Fetch your Top N tracks; time_range: short_term|medium_term|long_term
+  top-tracks [time_range] [n] Fetch your Top N tracks (default n=50); time_range: short_term|medium_term|long_term
   help                        Show this help message
 USAGE
   exit 1
@@ -143,7 +143,7 @@ fetch_tracks() {
 ### Retrieve user's top tracks (time_range=short_term, medium_term, or long_term)
 top_tracks() {
   local time_range=${1:-short_term}
-  local limit=${2:-5}
+  local limit=${2:-50}
   # Ensure we have a user token (generate via PKCE if needed)
   if [[ -z "${SPOTIFY_USER_TOKEN:-}" ]]; then
     echo "🔐 No user token found; invoking OAuth flow to get one..." >&2

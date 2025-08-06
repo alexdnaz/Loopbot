@@ -30,7 +30,8 @@ Commands:
   client-token                Acquire and cache a client-credentials access token
   user-token                  Run PKCE flow to get & cache a user access token (auto-opens browser)
   list-categories [limit]     List Spotify browse categories (default limit=5)
-  top-tracks [time_range] [n] Fetch your Top N tracks (default n=50); time_range: short_term|medium_term|long_term
+  top-tracks [time_range] [n] Fetch your Top N personal tracks (default n=50); time_range: short_term|medium_term|long_term
+  charts [region] [n]     Fetch Top N tracks from Spotify official Top 50 charts (region, default GLOBAL)
   help                        Show this help message
 USAGE
   exit 1
@@ -196,6 +197,23 @@ top_tracks() {
   echo "$body" | jq -r '.items[] | "- \(.name) by \(.artists|map(.name)|join(", "))"'
 }
 
+### Fetch Top 50 regional charts (Global, US, etc.) from Official Spotify Top 50
+charts() {
+  local region=${1:-GLOBAL}
+  local limit=${2:-5}
+  local query="Top%2050%20-%20${region^}"
+  echo "🔍 Searching for Top 50 chart: ${region^}" >&2
+  pl_id=$(curl -s -H "Authorization: Bearer ${SPOTIFY_CLIENT_TOKEN:-$(get_client_token)}" \
+    "https://api.spotify.com/v1/search?q=${query}&type=playlist&limit=1" \
+    | jq -r '.playlists.items[0].id')
+  if [[ -z "$pl_id" || "$pl_id" == "null" ]]; then
+    echo "❌ Could not find Top 50 chart for region ${region}." >&2
+    exit 1
+  fi
+  echo "🔗 Fetching Top ${limit} tracks from playlist $pl_id" >&2
+  fetch_tracks "${SPOTIFY_CLIENT_TOKEN:-$(get_client_token)}" | head -n "$limit"
+}
+
 if (( $# < 1 )); then usage; fi
 cmd=$1; shift
 case "$cmd" in
@@ -203,6 +221,7 @@ case "$cmd" in
   user-token) get_user_token ;;
   list-categories) list_categories "$@" ;;
   top-tracks) top_tracks "$@" ;;
+  charts) charts "$@" ;;
   help|--help|-h) usage ;;
   *) echo "❌ Unknown command: $cmd" >&2; usage ;;
 esac

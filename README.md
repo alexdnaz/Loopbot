@@ -20,7 +20,13 @@ worker: python bot.py
 Steps:
 1. Create a new Python service on Railway and connect your GitHub repository.
 2. Railway will read `requirements.txt` and install dependencies automatically.
-3. The `Procfile` tells Railway to start LoopBot as a background worker.
+3. Locally, you can fetch a Spotify access token for testing API calls by running:
+   ```bash
+   CLIENT_ID=<your_spotify_client_id> \
+   CLIENT_SECRET=<your_spotify_client_secret> \
+     ./scripts/get_spotify_token.sh
+   ```
+4. The `Procfile` tells Railway to start LoopBot as a background worker.
 4. In the Railway dashboard, add your environment variables:
    - `DISCORD_BOT_TOKEN` (required)
    - `OPENAI_API_KEY` (required for AI prompts)

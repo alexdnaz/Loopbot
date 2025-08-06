@@ -30,16 +30,13 @@ Steps:
    CLIENT_SECRET=<your_spotify_client_secret> \
      ./scripts/spotify.sh client-token
    ```
-5. Quickly retrieve the Top 5 tracks from a Spotify category or Top Hits US chart:
+5. Show your Top N Spotify tracks (based on your listening history):
    ```bash
-   ./scripts/spotify.sh top-tracks [CATEGORY_ID]
+   ./scripts/spotify.sh top-tracks [time_range] [limit]
    ```
-   - Pass an optional `CATEGORY_ID` (e.g. Hip‑Hop category) to fetch that category’s top playlist. If the category lookup fails, falls back to the live US Top Lists chart.
-   - Use client credentials (`CLIENT_ID`/`CLIENT_SECRET`) or a user token (`SPOTIFY_USER_TOKEN` in your `.env`).
-   - Override the playlist ID directly with `SPOTIFY_TOP_HITS_PLAYLIST` if desired (skips dynamic lookup).
-   - Specify a different market (ISO code) via `SPOTIFY_MARKET` in `.env`.
-   - All debug info (selected category, playlist ID, errors, request URLs) is emitted to stderr.
-   - Omits any market filter on playlist tracks to avoid empty results due to regional restrictions.
+   - `time_range`: one of `short_term` (last 4 weeks), `medium_term` (last 6 months), or `long_term` (several years); defaults to `short_term`.
+   - `limit`: number of tracks to fetch (default 5).
+   - Requires a user access token (via `user-token`); the script auto-launches OAuth if missing or needs a scope refresh, and saves `user_token.txt`.
 
 6. List the first 5 Spotify browse categories:
    ```bash

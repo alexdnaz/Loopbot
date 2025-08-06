@@ -63,7 +63,7 @@ get_user_token() {
     | tr '+/' '-_' \
     | tr -d '=')
 
-  SCOPES="playlist-read-private%20playlist-read-collaborative"
+SCOPES="playlist-read-private%20playlist-read-collaborative%20user-top-read"
   AUTH_URL="https://accounts.spotify.com/authorize?client_id=$CLIENT_ID&response_type=code&redirect_uri=$REDIRECT_URI&scope=$SCOPES&code_challenge_method=S256&code_challenge=$CODE_CHALLENGE"
   echo "👉 Open this URL in your browser to authorize:" >&2
   echo "  $AUTH_URL" >&2
@@ -148,12 +148,52 @@ top_tracks() {
   if [[ -z "${SPOTIFY_USER_TOKEN:-}" ]]; then
     echo "🔐 No user token found; invoking OAuth flow to get one..." >&2
     get_user_token
+    if [[ ! -s "$PROJECT_ROOT/user_token.txt" ]]; then
+      echo "❌ User-token flow failed; please complete authorization in the browser." >&2
+      exit 1
+    fi
     SPOTIFY_USER_TOKEN=$(<"$PROJECT_ROOT/user_token.txt")
     export SPOTIFY_USER_TOKEN
   fi
-  curl -s -H "Authorization: Bearer $SPOTIFY_USER_TOKEN" \
+  # Fetch user's top tracks and check for errors or empty result
+  # Fetch user's top tracks with auto-refresh on insufficient scopes
+  resp=$(curl -s -H "Authorization: Bearer $SPOTIFY_USER_TOKEN" \
     "https://api.spotify.com/v1/me/top/tracks?time_range=${time_range}&limit=${limit}" \
-    | jq -r '.items[] | "- \(.name) by \(.artists|map(.name)|join(", "))"'
+    -w "\n%{http_code}")
+  body=$(echo "$resp" | sed '$d')
+  code=$(echo "$resp" | tail -n1)
+  if [[ "$code" -ne 200 ]]; then
+    # If token lacks user-top-read, re-run OAuth to refresh
+    if [[ "$code" -eq 403 || "$code" -eq 401 ]]; then
+      echo "🔐 User token scope may be insufficient; refreshing via OAuth flow..." >&2
+      get_user_token
+      if [[ ! -s "$PROJECT_ROOT/user_token.txt" ]]; then
+        echo "❌ Failed to refresh user token; aborting." >&2
+        exit 1
+      fi
+      SPOTIFY_USER_TOKEN=$(<"$PROJECT_ROOT/user_token.txt")
+      export SPOTIFY_USER_TOKEN
+      # retry
+      resp=$(curl -s -H "Authorization: Bearer $SPOTIFY_USER_TOKEN" \
+        "https://api.spotify.com/v1/me/top/tracks?time_range=${time_range}&limit=${limit}" \
+        -w "\n%{http_code}")
+      body=$(echo "$resp" | sed '$d')
+      code=$(echo "$resp" | tail -n1)
+      if [[ "$code" -ne 200 ]]; then
+        echo "$body" | jq . >&2
+        exit $code
+      fi
+    else
+      echo "$body" | jq . >&2
+      echo "🔗 Request URL: https://api.spotify.com/v1/me/top/tracks?time_range=${time_range}&limit=${limit}" >&2
+      exit $code
+    fi
+  fi
+  if ! echo "$body" | jq -e '.items and (.items|length>0)' >/dev/null; then
+    echo "⚠️ No top-tracks data returned. Ensure you have listening history and proper scopes (user-top-read)." >&2
+    exit 1
+  fi
+  echo "$body" | jq -r '.items[] | "- \(.name) by \(.artists|map(.name)|join(", "))"'
 }
 
 if (( $# < 1 )); then usage; fi

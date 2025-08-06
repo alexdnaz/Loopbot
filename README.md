@@ -20,23 +20,34 @@ worker: python bot.py
 Steps:
 1. Create a new Python service on Railway and connect your GitHub repository.
 2. Railway will read `requirements.txt` and install dependencies automatically.
-3. Locally, you can fetch a Spotify access token for testing API calls by running the helper script. It will auto-load a `.env` file in your project root if present:
+3. Locally, you can fetch a Spotify Client Credentials token for API calls:
    ```bash
-   ./scripts/get_spotify_token.sh
+   ./scripts/spotify.sh client-token
    ```
    Or explicitly set creds inline:
    ```bash
    CLIENT_ID=<your_spotify_client_id> \
    CLIENT_SECRET=<your_spotify_client_secret> \
-     ./scripts/get_spotify_token.sh
+     ./scripts/spotify.sh client-token
    ```
-5. Quickly retrieve the Top 5 tracks with:
+5. Quickly retrieve the Top 5 tracks from a Spotify category or Top Hits US chart:
    ```bash
-   ./scripts/get_top_tracks.sh [MARKET_CODE]
+   ./scripts/spotify.sh top-tracks [CATEGORY_ID]
    ```
-   If the market lookup fails, it falls back to the global US Top Hits chart.
-   Omitting `MARKET_CODE` defaults to `US`.
-6. The `Procfile` tells Railway to start LoopBot as a background worker.
+   - Pass an optional `CATEGORY_ID` (e.g. Hip‑Hop category) to fetch that category’s top playlist. If the category lookup fails, falls back to the live US Top Lists chart.
+   - Use client credentials (`CLIENT_ID`/`CLIENT_SECRET`) or a user token (`SPOTIFY_USER_TOKEN` in your `.env`).
+   - Override the playlist ID directly with `SPOTIFY_TOP_HITS_PLAYLIST` if desired (skips dynamic lookup).
+   - Specify a different market (ISO code) via `SPOTIFY_MARKET` in `.env`.
+   - All debug info (selected category, playlist ID, errors, request URLs) is emitted to stderr.
+   - Omits any market filter on playlist tracks to avoid empty results due to regional restrictions.
+
+6. List the first 5 Spotify browse categories:
+   ```bash
+   ./scripts/spotify.sh list-categories [limit]
+   ```
+   This will prompt for a user token (via PKCE) if none is present.
+
+7. The `Procfile` tells Railway to start LoopBot as a background worker.
 4. In the Railway dashboard, add your environment variables:
    - `DISCORD_BOT_TOKEN` (required)
    - `OPENAI_API_KEY` (required for AI prompts)
@@ -79,4 +90,18 @@ Be sure to register your redirect URIs accordingly in the Spotify Developer Dash
 **Tip:** The bot now directly fetches the official Top Hits US playlist for a consistent Top 10 (override via `SPOTIFY_TOP_HITS_PLAYLIST`).
    Optionally, you can pass a market code (`!music <market>`) or set `SPOTIFY_MARKET` to annotate results, but the playlist itself remains the US Top Hits chart; the helper always requests without a market filter to avoid errors.
 
-**Note:** The `!music` command uses Spotify's Client Credentials flow, which only supports read-access to **public** playlists. Private or collaborative playlists will not be accessible and will result in empty track lists.
+**Note:** The `!music` command uses Spotify's Client Credentials flow, which only supports read‑access to **public** playlists. Private or collaborative playlists will not be accessible and will result in empty track lists.
+  
+## Generating a user-access token for `!music`
+
+1. Ensure in your `.env` the values match exactly those registered in your Spotify App:
+   ```bash
+   CLIENT_ID=<your_spotify_client_id>
+   REDIRECT_URI=http://127.0.0.1:8888/callback  # must use 127.0.0.1 (not 127.0.0.0 or localhost)
+   ```
+2. Run the helper to generate & capture a user token (auto-opens your browser & auto-captures the code):
+   ```bash
+   ./scripts/spotify.sh user-token
+   ```
+   The helper requests `playlist-read-private` and `playlist-read-collaborative` scopes for private/collab playlist access.
+3. A `user_token.txt` file will be created in the project root; the `spotify.sh` script will auto-load this token for subsequent commands (e.g. `list-categories`, `top-tracks`).

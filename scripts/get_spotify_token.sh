@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # Retrieve a Spotify API access token via the Client Credentials flow.
 
+# Load environment variables from .env if present
+if [[ -f .env ]]; then
+  set -o allexport
+  source .env
+  set +o allexport
+fi
 # Ensure CLIENT_ID and CLIENT_SECRET are set
 if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
-  echo "❌ CLIENT_ID and CLIENT_SECRET environment variables must be set."
+  echo "❌ CLIENT_ID and CLIENT_SECRET environment variables must be set (or defined in .env)."
   exit 1
 fi
 

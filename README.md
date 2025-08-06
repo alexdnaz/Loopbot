@@ -20,7 +20,11 @@ worker: python bot.py
 Steps:
 1. Create a new Python service on Railway and connect your GitHub repository.
 2. Railway will read `requirements.txt` and install dependencies automatically.
-3. Locally, you can fetch a Spotify access token for testing API calls by running:
+3. Locally, you can fetch a Spotify access token for testing API calls by running the helper script. It will auto-load a `.env` file in your project root if present:
+   ```bash
+   ./scripts/get_spotify_token.sh
+   ```
+   Or explicitly set creds inline:
    ```bash
    CLIENT_ID=<your_spotify_client_id> \
    CLIENT_SECRET=<your_spotify_client_secret> \

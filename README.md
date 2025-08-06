@@ -32,8 +32,9 @@ Steps:
    ```
 5. Quickly retrieve the Top 5 tracks from the US Top Hits chart with:
    ```bash
-   ./scripts/get_top_tracks.sh
+   ./scripts/get_top_tracks.sh [MARKET_CODE]
    ```
+   Omitting `MARKET_CODE` defaults to `US`.
 6. The `Procfile` tells Railway to start LoopBot as a background worker.
 4. In the Railway dashboard, add your environment variables:
    - `DISCORD_BOT_TOKEN` (required)

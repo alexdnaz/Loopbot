@@ -19,11 +19,19 @@ elif [[ -f "$PWD/.env" ]]; then
   set +o allexport
 fi
 
-# Ensure helper exists
-: "${SCRIPT_DIR}/get_spotify_token.sh" || { echo "Helper not found"; exit 1; }
-
-# Fetch access token
-TOKEN=$(bash "$SCRIPT_DIR/get_spotify_token.sh" | awk '/^Got token:/ {print $3}')
+# Obtain Spotify access token via Client Credentials flow
+if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
+  echo "❌ CLIENT_ID and CLIENT_SECRET must be set in .env"
+  exit 1
+fi
+TOKEN=$(curl -s -X POST https://accounts.spotify.com/api/token \
+  -H "Authorization: Basic $(echo -n "$CLIENT_ID:$CLIENT_SECRET" | base64)" \
+  -d grant_type=client_credentials \
+  | jq -r .access_token)
+if [[ -z "$TOKEN" || "$TOKEN" == "null" ]]; then
+  echo "❌ Failed to obtain Spotify access token"
+  exit 1
+fi
 
 # Determine playlist and market
 PL_ID="${SPOTIFY_TOP_HITS_PLAYLIST:-37i9dQZF1DXcBWIGoYBM5M}"

@@ -200,14 +200,29 @@ top_tracks() {
 ### Fetch Top 50 regional charts (Global, US, etc.) from Official Spotify Top 50
 charts() {
   local region=${1:-GLOBAL}
+  local region_uc
+  region_uc=$(echo "$region" | tr '[:lower:]' '[:upper:]')
   local limit=${2:-5}
-  local query="Top%2050%20-%20${region^}"
-  echo "🔍 Searching for Top 50 chart: ${region^}" >&2
-  pl_id=$(curl -s -H "Authorization: Bearer ${SPOTIFY_CLIENT_TOKEN:-$(get_client_token)}" \
-    "https://api.spotify.com/v1/search?q=${query}&type=playlist&limit=1" \
-    | jq -r '.playlists.items[0].id')
+  echo "🔍 Searching for official Top 50 ${region_uc} playlist" >&2
+  token=${SPOTIFY_CLIENT_TOKEN:-$(get_client_token)}
+  # Try search queries for region (e.g. US -> USA, United States)
+  declare -a search_terms
+  search_terms=("${region_uc}")
+  if [[ "$region_uc" == "US" ]]; then
+    search_terms+=("USA" "United%20States")
+  fi
+  pl_id=""
+  for t in "${search_terms[@]}"; do
+    echo "🔍 Searching for Top 50 $t playlist" >&2
+    pl_id=$(curl -s -H "Authorization: Bearer $token" \
+      "https://api.spotify.com/v1/search?q=Top%2050%20${t}&type=playlist&limit=10" \
+      | jq -r --arg R "$region_uc" '[.playlists.items[]? | select(.name? and (.name|test("Top 50";"i"))) | select(.name|test($R;"i"))][0].id')
+    if [[ -n "$pl_id" && "$pl_id" != "null" ]]; then
+      break
+    fi
+  done
   if [[ -z "$pl_id" || "$pl_id" == "null" ]]; then
-    echo "❌ Could not find Top 50 chart for region ${region}." >&2
+    echo "❌ Could not find the official Top 50 ${region_uc} playlist via search." >&2
     exit 1
   fi
   echo "🔗 Fetching Top ${limit} tracks from playlist $pl_id" >&2

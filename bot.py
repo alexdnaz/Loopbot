@@ -829,7 +829,7 @@ async def music(ctx, market: str = None):
         # Directly fetch the official Top Hits US playlist (override via env) for a consistent Top 10
         # Fetch top 10 tracks from the official Top Hits US playlist (or override via env var)
         pl_id = os.getenv('SPOTIFY_TOP_HITS_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
-        url = f"https://api.spotify.com/v1/playlists/{pl_id}/tracks?limit=10"
+        url = f"https://api.spotify.com/v1/playlists/{pl_id}/tracks?limit=10&market={market}"
         tracks_resp = await session.get(url, headers=hdr)
         tracks_json = await tracks_resp.json()
         if tracks_resp.status != 200:

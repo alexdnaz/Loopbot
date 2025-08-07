@@ -801,66 +801,19 @@ async def scrape_error(ctx, error):
         raise error
 
 @bot.command(name='music')
-async def music(ctx, market: str = None):
-    """Fetch Top 10 Spotify Tracks for a given market (e.g. US, GB) via the Spotify Web API."""
-    cid = os.getenv('SPOTIFY_CLIENT_ID')
-    secret = os.getenv('SPOTIFY_CLIENT_SECRET')
-    if not cid or not secret:
-        return await ctx.send("❌ Spotify client ID/secret not configured.")
-    # Determine market code (env override or command arg)
-    market = (market or os.getenv('SPOTIFY_MARKET', 'US')).upper()
-    await ctx.send(f"🎵 Fetching Top 10 tracks for market: {market}…")
-    # Authenticate
-    token_url = 'https://accounts.spotify.com/api/token'
-    auth = base64.b64encode(f"{cid}:{secret}".encode()).decode()
-    async with aiohttp.ClientSession() as session:
-        resp = await session.post(
-            token_url,
-            data={'grant_type': 'client_credentials'},
-            headers={'Authorization': f'Basic {auth}'},
-        )
-        if resp.status != 200:
-            err = await resp.text()
-            print(f"[❌] Spotify auth error {resp.status}: {err}")
-            return await ctx.send("⚠️ Spotify authentication failed.")
-        token = (await resp.json()).get('access_token')
-        hdr = {'Authorization': f'Bearer {token}'}
-
-        # Directly fetch the official Top Hits US playlist (override via env) for a consistent Top 10
-        # Fetch top 10 tracks from the official Top Hits US playlist (or override via env var)
-        pl_id = os.getenv('SPOTIFY_TOP_HITS_PLAYLIST', '37i9dQZF1DXcBWIGoYBM5M')
-        # Fetch top 10 tracks; omit market filter to avoid 404 on playlist tracks
-        url = f"https://api.spotify.com/v1/playlists/{pl_id}/tracks?limit=10"
-        tracks_resp = await session.get(url, headers=hdr)
-        tracks_json = await tracks_resp.json()
-        if tracks_resp.status != 200:
-            print(f"[❌] Spotify tracks fetch error {tracks_resp.status}: {tracks_json}")
-            return await ctx.send(
-                f"⚠️ Spotify API track fetch returned {tracks_resp.status}. Check playlist ID and credentials."
-            )
-        tracks = tracks_json.get('items', [])
-
-    # Format and send results
-    now = datetime.now(timezone.utc)
-    if not tracks:
-        return await ctx.send(
-            f"⚠️ Failed to retrieve Top 10 for {market}. ({tracks_resp.status})"
-        )
-    lines = []
-    for it in tracks:
-        t = it.get('track', {})
-        name = t.get('name', '<unknown>')
-        arts = ', '.join(a.get('name') for a in t.get('artists', [])) or '<unknown>'
-        lines.append(f"**{name}** by *{arts}*")
-    embed = discord.Embed(
-        title=f"🎶 Top 10 Spotify Tracks ({market})",
-        description="\n".join(lines),
-        color=discord.Color.green(),
-        timestamp=now
+async def music(ctx, *args: str):
+    """Invoke the spotify.sh helper: client-token, user-token, list-categories, top-tracks, charts."""
+    cmd = ['bash', os.path.join(SCRIPT_DIR, 'spotify.sh'), *args]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
-    channel = bot.get_channel(MUSIC_SHARE_CHANNEL_ID)
-    await channel.send(embed=embed)
-    await ctx.send("✅ Posted Top 10 Spotify Tracks!")
+    out, err = await proc.communicate()
+    if out:
+        await ctx.send(f"```\n{out.decode().strip()}\n```")
+    if err:
+        await ctx.send(f"⚠️ Error:\n```\n{err.decode().strip()}\n```")
 
 @bot.command(name='chat')
 async def chat(ctx, *, prompt: str = None):

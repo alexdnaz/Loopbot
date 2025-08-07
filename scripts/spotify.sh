@@ -212,7 +212,8 @@ charts() {
   region_uc=$(echo "$region" | tr '[:lower:]' '[:upper:]')
   local limit=${2:-5}
   echo "🔍 Searching for official Top 50 ${region_uc} playlist" >&2
-  token=${SPOTIFY_CLIENT_TOKEN:-$(get_client_token)}
+  # Always use fresh client credentials token for public charts
+  token=$(get_client_token)
   # Try search queries for region (e.g. US -> USA, United States)
   declare -a search_terms
   search_terms=("${region_uc}")

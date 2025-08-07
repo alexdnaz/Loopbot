@@ -38,12 +38,15 @@ USAGE
 }
 
 get_client_token() {
-  if [[ -z "${CLIENT_ID:-}" || -z "${CLIENT_SECRET:-}" ]]; then
-    echo "❌ CLIENT_ID and CLIENT_SECRET must be set" >&2
+  # Support SPOTIFY_CLIENT_ID/SECRET or CLIENT_ID/SECRET
+  cid=${SPOTIFY_CLIENT_ID:-${CLIENT_ID:-}}
+  secret=${SPOTIFY_CLIENT_SECRET:-${CLIENT_SECRET:-}}
+  if [[ -z "$cid" || -z "$secret" ]]; then
+    echo "❌ SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET (or CLIENT_ID/CLIENT_SECRET) must be set" >&2
     exit 1
   fi
   token=$(curl -s -X POST https://accounts.spotify.com/api/token \
-    -H "Authorization: Basic $(echo -n "$CLIENT_ID:$CLIENT_SECRET" | base64)" \
+    -H "Authorization: Basic $(echo -n "$cid:$secret" | base64)" \
     -d grant_type=client_credentials \
     | jq -r .access_token)
   # persist for reuse

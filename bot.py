@@ -814,6 +814,20 @@ async def music(ctx, *args: str):
       !music top-tracks [time_range] [n]
       !music charts [region] [n]
     """
+    cmd_name = args[0] if args else None
+    # Ensure Spotify credentials for commands beyond fetching client token
+    if cmd_name not in ('client-token',):
+        # client credentials required
+        if not (os.getenv('SPOTIFY_CLIENT_ID') or os.getenv('CLIENT_ID')) or not (os.getenv('SPOTIFY_CLIENT_SECRET') or os.getenv('CLIENT_SECRET')):
+            return await ctx.send(
+                "❌ Please configure SPOTIFY_CLIENT_ID (or CLIENT_ID) and SPOTIFY_CLIENT_SECRET (or CLIENT_SECRET) in environment before running this command."
+            )
+    # For PKCE user-token flow, ensure redirect URI is set
+    if cmd_name == 'user-token':
+        if not os.getenv('REDIRECT_URI'):
+            return await ctx.send(
+                "❌ Please configure REDIRECT_URI in environment (loopback, e.g. http://127.0.0.1:8888/callback) for user-token."
+            )
     cmd = ['bash', os.path.join(SCRIPT_DIR, 'spotify.sh'), *args]
     proc = await asyncio.create_subprocess_exec(
         *cmd,

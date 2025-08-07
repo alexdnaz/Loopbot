@@ -50,6 +50,7 @@ Steps:
    - `OPENAI_API_KEY` (required for AI prompts)
    - `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` (required for `!music` command)
    - `SPOTIFY_MARKET` (required; a 2-letter country code, e.g. `US`, to fetch that market's Top 10)
+   - **Prerequisite:** `jq` must be installed in your environment (or Docker image) for helper script JSON parsing
    - (Optional) `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.
 5. **Persisting the SQLite database:**
    - Railway containers are ephemeral, so mount a Persistent Volume at `/data`.

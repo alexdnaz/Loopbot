@@ -3,6 +3,11 @@
 
 set -euo pipefail
 
+# Ensure jq is installed
+if ! command -v jq &>/dev/null; then
+  echo "❌ 'jq' is required but not found. Please install jq in your environment or include it in your Docker image." >&2
+  exit 1
+fi
 # Load environment variables from project root .env if present
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"

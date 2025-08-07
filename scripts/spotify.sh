@@ -240,7 +240,18 @@ charts() {
     fi
   fi
   echo "🔗 Fetching Top ${limit} tracks from playlist $pl_id" >&2
-  fetch_tracks "${SPOTIFY_CLIENT_TOKEN:-$(get_client_token)}" | head -n "$limit"
+  # Directly fetch playlist tracks with given limit
+  resp=$(curl -s -H "Authorization: Bearer $token" \
+    "https://api.spotify.com/v1/playlists/${pl_id}/tracks?limit=${limit}" \
+    -w "\n%{http_code}")
+  body=$(echo "$resp" | sed '$d')
+  code=$(echo "$resp" | tail -n1)
+  if [[ "$code" -ne 200 ]]; then
+    echo "$body" | jq . >&2
+    echo "🔗 Request URL: https://api.spotify.com/v1/playlists/${pl_id}/tracks?limit=${limit}" >&2
+    exit $code
+  fi
+  echo "$body" | jq -r '.items[] | "- \(.track.name) by \(.track.artists|map(.name)|join(", "))"'
 }
 
 if (( $# < 1 )); then usage; fi

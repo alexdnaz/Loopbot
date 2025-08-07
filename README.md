@@ -18,8 +18,8 @@ worker: python bot.py
 ```
 
 Steps:
-1. Create a new Python service on Railway and connect your GitHub repository.
-2. Railway will read `requirements.txt` and install dependencies automatically.
+1. Create a new service on Railway and connect your GitHub repository.
+2. Railway will detect the included `Dockerfile` and build using it.
 3. Locally, you can fetch a Spotify Client Credentials token for API calls:
    ```bash
    ./scripts/spotify.sh client-token

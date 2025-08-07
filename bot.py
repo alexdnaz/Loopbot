@@ -802,7 +802,16 @@ async def scrape_error(ctx, error):
 
 @bot.command(name='music')
 async def music(ctx, *args: str):
-    """Invoke the spotify.sh helper: client-token, user-token, list-categories, top-tracks, charts."""
+    """
+    Run Spotify helper commands via spotify.sh.
+
+    Usage examples:
+      !music client-token
+      !music user-token
+      !music list-categories [limit]
+      !music top-tracks [time_range] [n]
+      !music charts [region] [n]
+    """
     cmd = ['bash', os.path.join(SCRIPT_DIR, 'spotify.sh'), *args]
     proc = await asyncio.create_subprocess_exec(
         *cmd,

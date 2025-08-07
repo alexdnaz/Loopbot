@@ -36,6 +36,8 @@ NITTER_INSTANCES = [
 # Load environment variables
 # Load environment variables
 load_dotenv()
+# Directory for helper scripts
+SCRIPT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'scripts')
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 if not TOKEN:
     print("❌ ERROR: DISCORD_BOT_TOKEN environment variable is missing.")

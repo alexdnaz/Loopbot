@@ -214,6 +214,10 @@ charts() {
   echo "🔍 Searching for official Top 50 ${region_uc} playlist" >&2
   # Always use fresh client credentials token for public charts
   token=$(get_client_token)
+  if [[ -z "$token" || "$token" == "null" ]]; then
+    echo "❌ Failed to obtain Spotify client token; ensure CLIENT_ID/SECRET or SPOTIFY_CLIENT_ID/SECRET are set" >&2
+    exit 1
+  fi
   # Try search queries for region (e.g. US -> USA, United States)
   declare -a search_terms
   search_terms=("${region_uc}")

@@ -230,8 +230,14 @@ charts() {
     fi
   done
   if [[ -z "$pl_id" || "$pl_id" == "null" ]]; then
-    echo "❌ Could not find the official Top 50 ${region_uc} playlist via search." >&2
-    exit 1
+    if [[ "$region_uc" == "US" ]]; then
+      # Fallback to static official US Top Hits playlist
+      pl_id="${SPOTIFY_TOP_HITS_PLAYLIST:-37i9dQZF1DXcBWIGoYBM5M}"
+      echo "⚠️ Falling back to static US Top Hits playlist: $pl_id" >&2
+    else
+      echo "❌ Could not find the official Top 50 ${region_uc} playlist via search." >&2
+      exit 1
+    fi
   fi
   echo "🔗 Fetching Top ${limit} tracks from playlist $pl_id" >&2
   fetch_tracks "${SPOTIFY_CLIENT_TOKEN:-$(get_client_token)}" | head -n "$limit"

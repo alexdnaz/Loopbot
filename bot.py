@@ -807,92 +807,66 @@ async def scrape_error(ctx, error):
         raise error
 
 @bot.command(name='music')
-async def music(ctx, *args: str):
+async def music(ctx, type: str = 'track', *, query: str = None):
     """
-    Run Spotify helper commands via spotify.sh.
+    Search Spotify for tracks, albums, or artists.
 
-    Usage examples:
-      !music client-token
-      !music user-token
-      !music list-categories [limit]
-      !music top-tracks [time_range] [n]
-      !music charts [region] [n]
+    Usage: !music [track|album|artist] <search terms>
     """
-    cmd_name = args[0] if args else None
-    # Ensure Spotify credentials for commands beyond fetching client token
-    if cmd_name not in ('client-token',):
-        # DEBUG: verify env vars
-        logger.info(f"[DEBUG] SPOTIFY_CLIENT_ID={os.getenv('SPOTIFY_CLIENT_ID')!r}, CLIENT_ID={os.getenv('CLIENT_ID')!r}")
-        logger.info(f"[DEBUG] SPOTIFY_CLIENT_SECRET={os.getenv('SPOTIFY_CLIENT_SECRET')!r}, CLIENT_SECRET={os.getenv('CLIENT_SECRET')!r}")
-        # client credentials required
-        if not (os.getenv('SPOTIFY_CLIENT_ID') or os.getenv('CLIENT_ID')) or not (os.getenv('SPOTIFY_CLIENT_SECRET') or os.getenv('CLIENT_SECRET')):
-            return await ctx.send(
-                "❌ Please configure SPOTIFY_CLIENT_ID (or CLIENT_ID) and SPOTIFY_CLIENT_SECRET (or CLIENT_SECRET) in environment before running this command."
-            )
-    # For PKCE user-token flow, ensure redirect URI is set
-    if cmd_name == 'user-token':
-        if not os.getenv('REDIRECT_URI'):
-            return await ctx.send(
-                "❌ Please configure REDIRECT_URI in environment (loopback, e.g. http://127.0.0.1:8888/callback) for user-token."
-            )
-    cmd = args[0] if args else None
-    # Handle charts entirely in Python
-    if cmd == 'charts':
-        region = args[1].upper() if len(args) > 1 else 'GLOBAL'
-        limit = int(args[2]) if len(args) > 2 else 5
-        # Client credentials flow
-        cid = os.getenv('SPOTIFY_CLIENT_ID') or os.getenv('CLIENT_ID')
-        secret = os.getenv('SPOTIFY_CLIENT_SECRET') or os.getenv('CLIENT_SECRET')
-        if not cid or not secret:
-            return await ctx.send("❌ Spotify credentials not configured.")
-        token_url = 'https://accounts.spotify.com/api/token'
-        auth = base64.b64encode(f"{cid}:{secret}".encode()).decode()
-        async with aiohttp.ClientSession() as session:
-            # get token
-            resp = await session.post(token_url,
-                data={'grant_type': 'client_credentials'},
-                headers={'Authorization': f'Basic {auth}'},
-            )
-            data = await resp.json()
-            if resp.status != 200 or 'access_token' not in data:
-                return await ctx.send(f"❌ Token error {resp.status}: {data}")
-            token = data['access_token']
-            hdr = {'Authorization': f'Bearer {token}'}
-            # search for Top 50 playlist
-            search_url = f"https://api.spotify.com/v1/search?q=Top%2050%20{region}&type=playlist&limit=10"
-            resp2 = await session.get(search_url, headers=hdr)
-            j2 = await resp2.json()
-            # filter out any null entries
-            items = [it for it in j2.get('playlists', {}).get('items', []) if isinstance(it, dict)]
-            pl_id = None
-            for it in items:
-                name = it.get('name','')
-                if 'Top 50' in name and region in name.upper():
-                    pl_id = it.get('id')
-                    break
-            if not pl_id:
-                pl_id = os.getenv('SPOTIFY_TOP_HITS_PLAYLIST')
-                if not pl_id:
-                    return await ctx.send(f"❌ No Top 50 {region} playlist found.")
-            # fetch tracks
-            url = f"https://api.spotify.com/v1/playlists/{pl_id}/tracks?limit={limit}"
-            resp3 = await session.get(url, headers=hdr)
-            j3 = await resp3.json()
-            if resp3.status != 200:
-                return await ctx.send(f"❌ Spotify API error {resp3.status}: {j3}")
-            tracks = j3.get('items', [])
-        if not tracks:
-            return await ctx.send(f"⚠️ No tracks found in playlist {pl_id}.")
-        lines = [f"- {t['track']['name']} by {', '.join(a['name'] for a in t['track']['artists'])}" for t in tracks]
-        await ctx.send("\n".join(lines))
-        return
-    # fallback to shell helper
-    helper = ['bash', os.path.join(SCRIPT_DIR, 'spotify.sh'), *args]
-    proc = await asyncio.create_subprocess_exec(*helper,
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    out, err = await proc.communicate()
-    if out: await ctx.send(f"```\n{out.decode().strip()}\n```")
-    if err: await ctx.send(f"⚠️ Error:\n```\n{err.decode().strip()}\n```")
+    if not query:
+        return await ctx.send("❌ Please provide search terms. Usage: !music [track|album|artist] <search terms>")
+
+    client_id = os.getenv('SPOTIFY_CLIENT_ID')
+    client_secret = os.getenv('SPOTIFY_CLIENT_SECRET')
+    if not client_id or not client_secret:
+        return await ctx.send(
+            "❌ Please configure SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in environment."
+        )
+
+    # Client Credentials flow
+    token_url = 'https://accounts.spotify.com/api/token'
+    auth_header = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+    async with aiohttp.ClientSession() as session:
+        resp = await session.post(
+            token_url,
+            data={'grant_type': 'client_credentials'},
+            headers={'Authorization': f'Basic {auth_header}'},
+        )
+        data = await resp.json()
+        if resp.status != 200 or 'access_token' not in data:
+            return await ctx.send(f"❌ Token error {resp.status}: {data}")
+
+        token = data['access_token']
+        headers = {'Authorization': f'Bearer {token}'}
+        params = {'q': query, 'type': type, 'limit': 5}
+        search_url = 'https://api.spotify.com/v1/search'
+        resp2 = await session.get(search_url, headers=headers, params=params)
+        results = await resp2.json()
+        if resp2.status != 200:
+            return await ctx.send(f"❌ Spotify API error {resp2.status}: {results}")
+
+    items = results.get(f"{type}s", {}).get('items', [])
+    if not items:
+        return await ctx.send("🔍 No results found.")
+
+    lines = []
+    for item in items:
+        if type == 'track':
+            name = item.get('name')
+            artists = ', '.join(a['name'] for a in item.get('artists', []))
+            url = item.get('external_urls', {}).get('spotify')
+            lines.append(f"{name} by {artists} - {url}")
+        elif type == 'album':
+            name = item.get('name')
+            artists = ', '.join(a['name'] for a in item.get('artists', []))
+            url = item.get('external_urls', {}).get('spotify')
+            lines.append(f"{name} by {artists} - {url}")
+        elif type == 'artist':
+            name = item.get('name')
+            genres = ', '.join(item.get('genres', []))
+            url = item.get('external_urls', {}).get('spotify')
+            lines.append(f"{name} (Genres: {genres}) - {url}")
+    await ctx.send("\n".join(lines))
 
 @bot.command(name='chat')
 async def chat(ctx, *, prompt: str = None):

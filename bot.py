@@ -817,6 +817,9 @@ async def music(ctx, *args: str):
     cmd_name = args[0] if args else None
     # Ensure Spotify credentials for commands beyond fetching client token
     if cmd_name not in ('client-token',):
+        # DEBUG: verify env vars
+        print(f"[DEBUG] SPOTIFY_CLIENT_ID={os.getenv('SPOTIFY_CLIENT_ID')!r}, CLIENT_ID={os.getenv('CLIENT_ID')!r}")
+        print(f"[DEBUG] SPOTIFY_CLIENT_SECRET={os.getenv('SPOTIFY_CLIENT_SECRET')!r}, CLIENT_SECRET={os.getenv('CLIENT_SECRET')!r}")
         # client credentials required
         if not (os.getenv('SPOTIFY_CLIENT_ID') or os.getenv('CLIENT_ID')) or not (os.getenv('SPOTIFY_CLIENT_SECRET') or os.getenv('CLIENT_SECRET')):
             return await ctx.send(

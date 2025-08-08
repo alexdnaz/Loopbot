@@ -52,20 +52,30 @@ get_client_token() {
     echo "❌ SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET (or CLIENT_ID/CLIENT_SECRET) must be set" >&2
     exit 1
   fi
+  # Temporarily disable -u to allow unset variables in debug
+  set +u
   # Request a client credentials token
-  resp=$(curl -s -X POST https://accounts.spotify.com/api/token \
+  resp=$(curl -v -sS -X POST https://accounts.spotify.com/api/token \
     -H "Authorization: Basic $(echo -n "$cid:$secret" | base64)" \
-    -d grant_type=client_credentials)
+    -d grant_type=client_credentials 2>&1)
+  set -u
   echo "🔍 [DEBUG] client_token response: $resp" >&2
   token=$(echo "$resp" | jq -r .access_token)
   echo "🔍 [DEBUG] extracted access_token: $token" >&2
-  # persist for reuse if successful
+  # WORKAROUND: pre-fetched client token fallback if parsing failed
   if [[ -n "$token" && "$token" != "null" ]]; then
     echo "$token" > "$PROJECT_ROOT/client_token.txt"
     echo "$token"
   else
-    echo "❌ Failed to parse access_token from response" >&2
-    exit 1
+    echo "❌ Could not retrieve access_token, falling back to client_token.txt" >&2
+    token=$(<"$PROJECT_ROOT/client_token.txt" 2>/dev/null || true)
+    if [[ -n "$token" ]]; then
+      echo "🔄 Using pre-fetched client token: $token" >&2
+      echo "$token"
+    else
+      echo "❌ No client_token.txt found; aborting." >&2
+      exit 1
+    fi
   fi
 }
 

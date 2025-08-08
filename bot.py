@@ -835,17 +835,62 @@ async def music(ctx, *args: str):
             return await ctx.send(
                 "❌ Please configure REDIRECT_URI in environment (loopback, e.g. http://127.0.0.1:8888/callback) for user-token."
             )
-    cmd = ['bash', os.path.join(SCRIPT_DIR, 'spotify.sh'), *args]
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    cmd = args[0] if args else None
+    # Handle charts entirely in Python
+    if cmd == 'charts':
+        region = args[1].upper() if len(args) > 1 else 'GLOBAL'
+        limit = int(args[2]) if len(args) > 2 else 5
+        # Client credentials flow
+        cid = os.getenv('SPOTIFY_CLIENT_ID') or os.getenv('CLIENT_ID')
+        secret = os.getenv('SPOTIFY_CLIENT_SECRET') or os.getenv('CLIENT_SECRET')
+        if not cid or not secret:
+            return await ctx.send("❌ Spotify credentials not configured.")
+        token_url = 'https://accounts.spotify.com/api/token'
+        auth = base64.b64encode(f"{cid}:{secret}".encode()).decode()
+        async with aiohttp.ClientSession() as session:
+            # get token
+            resp = await session.post(token_url,
+                data={'grant_type': 'client_credentials'},
+                headers={'Authorization': f'Basic {auth}'},
+            )
+            data = await resp.json()
+            if resp.status != 200 or 'access_token' not in data:
+                return await ctx.send(f"❌ Token error {resp.status}: {data}")
+            token = data['access_token']
+            hdr = {'Authorization': f'Bearer {token}'}
+            # search for Top 50 playlist
+            search_url = f"https://api.spotify.com/v1/search?q=Top%2050%20{region}&type=playlist&limit=10"
+            resp2 = await session.get(search_url, headers=hdr)
+            j2 = await resp2.json()
+            items = j2.get('playlists', {}).get('items', [])
+            pl_id = None
+            for it in items:
+                name = it.get('name','')
+                if 'Top 50' in name and region in name.upper():
+                    pl_id = it.get('id'); break
+            if not pl_id:
+                pl_id = os.getenv('SPOTIFY_TOP_HITS_PLAYLIST')
+                if not pl_id:
+                    return await ctx.send(f"❌ No Top 50 {region} playlist found.")
+            # fetch tracks
+            url = f"https://api.spotify.com/v1/playlists/{pl_id}/tracks?limit={limit}"
+            resp3 = await session.get(url, headers=hdr)
+            j3 = await resp3.json()
+            if resp3.status != 200:
+                return await ctx.send(f"❌ Spotify API error {resp3.status}: {j3}")
+            tracks = j3.get('items', [])
+        if not tracks:
+            return await ctx.send(f"⚠️ No tracks found in playlist {pl_id}.")
+        lines = [f"- {t['track']['name']} by {', '.join(a['name'] for a in t['track']['artists'])}" for t in tracks]
+        await ctx.send("\n".join(lines))
+        return
+    # fallback to shell helper
+    helper = ['bash', os.path.join(SCRIPT_DIR, 'spotify.sh'), *args]
+    proc = await asyncio.create_subprocess_exec(*helper,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     out, err = await proc.communicate()
-    if out:
-        await ctx.send(f"```\n{out.decode().strip()}\n```")
-    if err:
-        await ctx.send(f"⚠️ Error:\n```\n{err.decode().strip()}\n```")
+    if out: await ctx.send(f"```\n{out.decode().strip()}\n```")
+    if err: await ctx.send(f"⚠️ Error:\n```\n{err.decode().strip()}\n```")
 
 @bot.command(name='chat')
 async def chat(ctx, *, prompt: str = None):

@@ -12,14 +12,9 @@ if ! command -v jq &>/dev/null; then
   echo "❌ 'jq' is required but not found. Please install jq in your environment or include it in your Docker image." >&2
   exit 1
 fi
-# Load environment variables from project root .env if present
+# Determine script location (no .env sourc ing in container)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-ENV_FILE="$PROJECT_ROOT/.env"
-if [[ -f "$ENV_FILE" ]]; then
-  echo "🔍 Loading environment from $ENV_FILE" >&2
-  set -o allexport; source "$ENV_FILE"; set +o allexport
-fi
 
 # Auto-load saved tokens if present
 if [[ -z "${SPOTIFY_USER_TOKEN:-}" && -f "$PROJECT_ROOT/user_token.txt" ]]; then

@@ -5,7 +5,8 @@
 echo "🔍 [DEBUG ENV] SPOTIFY_CLIENT_ID='${SPOTIFY_CLIENT_ID:-}' CLIENT_ID='${CLIENT_ID:-}'" >&2
 echo "🔍 [DEBUG ENV] SPOTIFY_CLIENT_SECRET='${SPOTIFY_CLIENT_SECRET:-}' CLIENT_SECRET='${CLIENT_SECRET:-}'" >&2
 echo "🔍 [DEBUG ENV] REDIRECT_URI='${REDIRECT_URI:-}' SPOTIFY_MARKET='${SPOTIFY_MARKET:-}'" >&2
-set -euo pipefail
+# allow errors to continue for debugging
+set -uo pipefail
 
 # Ensure jq is installed
 if ! command -v jq &>/dev/null; then

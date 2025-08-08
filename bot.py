@@ -519,6 +519,24 @@ async def submit(ctx, link: str = None):
     await sent.add_reaction("👍")
     await sent.add_reaction("👎")
 
+    # Record submission in database for voting
+    uid = str(ctx.author.id)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    # extract any tags from message content (e.g. #tag)
+    tag_list = [w.lstrip('#') for w in (link or '').split() if w.startswith('#')]
+    tags = ' '.join(tag_list)
+    if attachments:
+        c.execute(
+            "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id, tags, message_id) VALUES (?, ?, ?, ?, ?, ?)",
+            (uid, attachments[0].filename, now_iso, ctx.message.id, tags, sent.id),
+        )
+    else:
+        c.execute(
+            "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id, message_id) VALUES (?, ?, ?, ?, ?, ?)",
+            (uid, link, now_iso, tags, ctx.message.id, sent.id),
+        )
+    conn.commit()
+
     await ctx.send(
         f"✅ Submission posted in {voting_chan.mention}. Voting is now open."
     )

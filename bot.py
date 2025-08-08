@@ -862,12 +862,14 @@ async def music(ctx, *args: str):
             search_url = f"https://api.spotify.com/v1/search?q=Top%2050%20{region}&type=playlist&limit=10"
             resp2 = await session.get(search_url, headers=hdr)
             j2 = await resp2.json()
-            items = j2.get('playlists', {}).get('items', [])
+            # filter out any null entries
+            items = [it for it in j2.get('playlists', {}).get('items', []) if isinstance(it, dict)]
             pl_id = None
             for it in items:
                 name = it.get('name','')
                 if 'Top 50' in name and region in name.upper():
-                    pl_id = it.get('id'); break
+                    pl_id = it.get('id')
+                    break
             if not pl_id:
                 pl_id = os.getenv('SPOTIFY_TOP_HITS_PLAYLIST')
                 if not pl_id:

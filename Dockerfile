@@ -2,7 +2,7 @@
 FROM python:3.12-slim
 
 # Cache bust to force reinstallation of system dependencies
-ENV CACHEBUST=1
+ARG CACHEBUST=1
 # Install system dependencies for scripts (jq, curl, openssl)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -22,8 +22,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Ensure our helper is executable
-RUN chmod +x ./scripts/spotify.sh
 
 # Default command
 CMD ["python", "bot.py"]

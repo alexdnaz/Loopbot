@@ -1,0 +1,34 @@
+# Exclude version control
+.git
+.gitignore
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+pyvenv.cfg
+.Python
+env/
+venv/
+ENV/
+
+# Ignore caches and build artifacts
+*.cache
+.cache/
+
+# Logs and runtime files
+*.log
+debug.log
+discord.log
+
+# Database files
+*.db
+rankings.db
+
+# Credentials and tokens
+.env
+user_token.txt
+
+# nixpacks
+.nixpacks.toml

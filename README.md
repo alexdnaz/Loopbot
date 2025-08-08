@@ -20,31 +20,6 @@ worker: python bot.py
 Steps:
 1. Create a new service on Railway and connect your GitHub repository.
 2. Railway will detect the included `Dockerfile` and build using it.
-3. Locally, you can fetch a Spotify Client Credentials token for API calls:
-   ```bash
-   ./scripts/spotify.sh client-token
-   ```
-   Or explicitly set creds inline:
-   ```bash
-   CLIENT_ID=<your_spotify_client_id> \
-   CLIENT_SECRET=<your_spotify_client_secret> \
-     ./scripts/spotify.sh client-token
-   ```
-5. Show your Top N Spotify tracks (based on your listening history):
-   ```bash
-   ./scripts/spotify.sh top-tracks [time_range] [limit]
-   ```
-   - `time_range`: one of `short_term` (last 4 weeks), `medium_term` (last 6 months), or `long_term` (several years); defaults to `short_term`.
-   - `limit`: number of tracks to fetch (default 50).
-   - Requires a user access token (via `user-token`); the script auto-launches OAuth if missing or needs a scope refresh, and saves `user_token.txt`.
-
-6. List the first 5 Spotify browse categories:
-   ```bash
-   ./scripts/spotify.sh list-categories [limit]
-   ```
-   This will prompt for a user token (via PKCE) if none is present.
-
-7. The `Procfile` tells Railway to start LoopBot as a background worker.
 4. In the Railway dashboard, add your environment variables:
    - `DISCORD_BOT_TOKEN` (required)
    - `OPENAI_API_KEY` (required for AI prompts)
@@ -90,16 +65,3 @@ Be sure to register your redirect URIs accordingly in the Spotify Developer Dash
 
 **Note:** The `!music` command uses Spotify's Client Credentials flow, which only supports read‑access to **public** playlists. Private or collaborative playlists will not be accessible and will result in empty track lists.
   
-## Generating a user-access token for `!music`
-
-1. Ensure in your `.env` the values match exactly those registered in your Spotify App:
-   ```bash
-   CLIENT_ID=<your_spotify_client_id>
-   REDIRECT_URI=http://127.0.0.1:8888/callback  # must use 127.0.0.1 (not 127.0.0.0 or localhost)
-   ```
-2. Run the helper to generate & capture a user token (auto-opens your browser & auto-captures the code):
-   ```bash
-   ./scripts/spotify.sh user-token
-   ```
-   The helper requests `playlist-read-private` and `playlist-read-collaborative` scopes for private/collab playlist access.
-3. A `user_token.txt` file will be created in the project root; the `spotify.sh` script will auto-load this token for subsequent commands (e.g. `list-categories`, `top-tracks`).

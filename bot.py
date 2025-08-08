@@ -459,7 +459,7 @@ async def ping(ctx):
 @bot.command(name='commands')
 async def list_commands(ctx):
     await ctx.send(
-        "📜 Commands: `!ping`, `!how`, `!submit <link>` or attach a file, `!vote <1-10>`, `!rank`, `!leaderboard`, `!chat <msg>`, `!search #tag`, `!music [track|album|artist] <search terms>`"
+        "📜 Commands: `!ping`, `!how`, `!submit <link>` or attach a file, `!vote <1-10>`, `!rank`, `!leaderboard`, `!chat <msg>`, `!search #tag`, `!music [track|album|artist] <search terms>`, `!gif <search terms>`"
     )
 
 @bot.command(name='how')
@@ -889,6 +889,33 @@ async def chat(ctx, *, prompt: str = None):
     except Exception as e:
         await ctx.send("⚠️ AI request failed. Please try again later.")
         print(f"[AI ERROR] {e}")
+
+
+# Giphy search command
+@bot.command(name='gif')
+async def gif(ctx, *, query: str = None):
+    """Search Giphy for a GIF. Usage: !gif <search terms>"""
+    if not query:
+        return await ctx.send("❌ Please provide search terms. Usage: !gif <search terms>")
+    api_key = os.getenv('GIPHY_API_KEY')
+    if not api_key:
+        return await ctx.send("❌ GIPHY_API_KEY not configured.")
+    url = 'https://api.giphy.com/v1/gifs/search'
+    params = {'api_key': api_key, 'q': query, 'limit': 5, 'rating': 'pg'}
+    async with aiohttp.ClientSession() as session:
+        resp = await session.get(url, params=params)
+        if resp.status != 200:
+            text = await resp.text()
+            return await ctx.send(f"❌ Giphy API error {resp.status}: {text}")
+        data = await resp.json()
+    results = data.get('data', [])
+    if not results:
+        return await ctx.send(f"🔍 No GIFs found for '{query}'.")
+    gif_item = random.choice(results)
+    gif_url = gif_item.get('images', {}).get('original', {}).get('url')
+    if not gif_url:
+        return await ctx.send("⚠️ Couldn't parse GIF URL from response.")
+    await ctx.send(gif_url)
 
 ## Welcome new members
 

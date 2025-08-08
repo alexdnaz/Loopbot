@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Unified Spotify helper script: client-token, user-token, list-categories, top-tracks
 
+# Debug: print Spotify env for troubleshooting
+echo "🔍 [DEBUG ENV] SPOTIFY_CLIENT_ID='${SPOTIFY_CLIENT_ID:-}' CLIENT_ID='${CLIENT_ID:-}'" >&2
+echo "🔍 [DEBUG ENV] SPOTIFY_CLIENT_SECRET='${SPOTIFY_CLIENT_SECRET:-}' CLIENT_SECRET='${CLIENT_SECRET:-}'" >&2
+echo "🔍 [DEBUG ENV] REDIRECT_URI='${REDIRECT_URI:-}' SPOTIFY_MARKET='${SPOTIFY_MARKET:-}'" >&2
 set -euo pipefail
 
 # Ensure jq is installed
@@ -46,6 +50,8 @@ get_client_token() {
   # Support SPOTIFY_CLIENT_ID/SECRET or CLIENT_ID/SECRET
   cid=${SPOTIFY_CLIENT_ID:-${CLIENT_ID:-}}
   secret=${SPOTIFY_CLIENT_SECRET:-${CLIENT_SECRET:-}}
+  echo "🔍 [DEBUG] get_client_token sees SPOTIFY_CLIENT_ID='${SPOTIFY_CLIENT_ID:-}' CLIENT_ID='${CLIENT_ID:-}'" >&2
+  echo "🔍 [DEBUG] get_client_token sees SPOTIFY_CLIENT_SECRET='${SPOTIFY_CLIENT_SECRET:-}' CLIENT_SECRET='${CLIENT_SECRET:-}'" >&2
   if [[ -z "$cid" || -z "$secret" ]]; then
     echo "❌ SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET (or CLIENT_ID/CLIENT_SECRET) must be set" >&2
     exit 1

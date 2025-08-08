@@ -498,25 +498,29 @@ async def submit(ctx, link: str = None):
                 attachments = prev.attachments
                 break
 
-    submissions_chan = bot.get_channel(SUBMISSIONS_CHANNEL_ID)
-    if not submissions_chan:
-        return await ctx.send("❌ Submissions channel not found. Check configuration.")
+    # Post directly to voting hall so members can vote immediately
+    voting_chan = bot.get_channel(VOTING_HALL_CHANNEL_ID)
+    if not voting_chan:
+        return await ctx.send("❌ Voting hall channel not found. Check configuration.")
 
-    # Forward to submissions channel
+    # Forward to voting hall with pre-added vote reactions
     if attachments:
-        sent = await submissions_chan.send(
+        sent = await voting_chan.send(
             f"📥 Submission from {ctx.author.mention}",
             file=await attachments[0].to_file()
         )
     elif link:
-        sent = await submissions_chan.send(
+        sent = await voting_chan.send(
             f"📥 Submission from {ctx.author.mention}: {link}"
         )
     else:
         return await ctx.send("❌ Please provide a link or attach a file to submit.")
+    # Add voting reactions
+    await sent.add_reaction("👍")
+    await sent.add_reaction("👎")
 
     await ctx.send(
-        f"✅ Submission posted in {submissions_chan.mention}. Voting will open shortly."
+        f"✅ Submission posted in {voting_chan.mention}. Voting is now open."
     )
 
 @bot.command()

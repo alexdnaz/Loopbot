@@ -51,13 +51,21 @@ get_client_token() {
     echo "❌ SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET (or CLIENT_ID/CLIENT_SECRET) must be set" >&2
     exit 1
   fi
-  token=$(curl -s -X POST https://accounts.spotify.com/api/token \
+  # Request a client credentials token
+  resp=$(curl -s -X POST https://accounts.spotify.com/api/token \
     -H "Authorization: Basic $(echo -n "$cid:$secret" | base64)" \
-    -d grant_type=client_credentials \
-    | jq -r .access_token)
-  # persist for reuse
-  echo "$token" > "$PROJECT_ROOT/client_token.txt"
-  echo "$token"
+    -d grant_type=client_credentials)
+  echo "🔍 [DEBUG] client_token response: $resp" >&2
+  token=$(echo "$resp" | jq -r .access_token)
+  echo "🔍 [DEBUG] extracted access_token: $token" >&2
+  # persist for reuse if successful
+  if [[ -n "$token" && "$token" != "null" ]]; then
+    echo "$token" > "$PROJECT_ROOT/client_token.txt"
+    echo "$token"
+  else
+    echo "❌ Failed to parse access_token from response" >&2
+    exit 1
+  fi
 }
 
 get_user_token() {

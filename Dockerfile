@@ -1,6 +1,8 @@
 # Use official Python base image
 FROM python:3.12-slim
 
+# Cache bust to force reinstallation of system dependencies
+ENV CACHEBUST=1
 # Install system dependencies for scripts (jq, curl, openssl)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \

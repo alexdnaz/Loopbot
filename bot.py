@@ -504,27 +504,25 @@ async def submit(ctx, link: str = None):
         return await ctx.send("❌ Voting hall channel not found. Check configuration.")
 
     # Forward to voting hall with pre-added vote reactions
+    # extract any tags from message content (e.g. #tag)
+    tag_list = [w.lstrip('#') for w in (link or '').split() if w.startswith('#')]
+    tags = ' '.join(tag_list)
     if attachments:
-        sent = await voting_chan.send(
-            f"📥 Submission from {ctx.author.mention}",
-            file=await attachments[0].to_file()
-        )
+        content = f"📥 Submission from {ctx.author.mention}"
+        if tags:
+            content += "  " + " ".join(f"#{t}" for t in tag_list)
+        sent = await voting_chan.send(content, file=await attachments[0].to_file())
     elif link:
-        sent = await voting_chan.send(
-            f"📥 Submission from {ctx.author.mention}: {link}"
-        )
+        content = f"📥 Submission from {ctx.author.mention}: {link}"
+        if tags:
+            content += "  " + " ".join(f"#{t}" for t in tag_list)
+        sent = await voting_chan.send(content)
     else:
         return await ctx.send("❌ Please provide a link or attach a file to submit.")
     # Add voting reactions
     await sent.add_reaction("👍")
     await sent.add_reaction("👎")
 
-    # Record submission in database for voting
-    uid = str(ctx.author.id)
-    now_iso = datetime.now(timezone.utc).isoformat()
-    # extract any tags from message content (e.g. #tag)
-    tag_list = [w.lstrip('#') for w in (link or '').split() if w.startswith('#')]
-    tags = ' '.join(tag_list)
     if attachments:
         c.execute(
             "INSERT INTO audio_submissions (user_id, filename, timestamp, orig_message_id, tags, message_id) VALUES (?, ?, ?, ?, ?, ?)",
@@ -996,7 +994,10 @@ async def on_message(message):
         conn.commit()
         # Post; no immediate points, voting only
         chan = bot.get_channel(VOTING_HALL_CHANNEL_ID)
-        sent = await chan.send(f"📥 **File Submission from {message.author.mention}:**", file=await att.to_file())
+        content = f"📥 **File Submission from {message.author.mention}:**"
+        if tags:
+            content += "  " + " ".join(f"#{t}" for t in tag_list)
+        sent = await chan.send(content, file=await att.to_file())
         # Pre-add voting reactions for neutral starting point
         await sent.add_reaction("👍")
         await sent.add_reaction("👎")
@@ -1030,7 +1031,10 @@ async def on_message(message):
         )
         conn.commit()
         chan = bot.get_channel(VOTING_HALL_CHANNEL_ID)
-        sent = await chan.send(f"📥 **Link Submission from {message.author.mention}:** {url}")
+        content = f"📥 **Link Submission from {message.author.mention}:** {url}"
+        if tags:
+            content += "  " + " ".join(f"#{t}" for t in tag_list)
+        sent = await chan.send(content)
         # Pre-add voting reactions for neutral starting point
         await sent.add_reaction("👍")
         await sent.add_reaction("👎")

@@ -22,6 +22,7 @@ SMTP_PASS = os.getenv('SMTP_PASS')
 EMAIL_FROM = os.getenv('EMAIL_FROM')
 BASE_URL = os.getenv('BASE_URL', 'http://localhost:5000')
 INVITE_LINK = os.getenv('INVITE_LINK', '')
+SERVER_NAME = os.getenv('SERVER_NAME', 'Discord Server')
 
 if not all([SMTP_HOST, SMTP_USER, SMTP_PASS, EMAIL_FROM, INVITE_LINK]):
     raise RuntimeError('SMTP_HOST, SMTP_USER, SMTP_PASS, EMAIL_FROM, and INVITE_LINK must be set')
@@ -85,10 +86,15 @@ def confirm(token):
     if email not in seen:
         with open(csv_path, 'a') as f:
             f.write(f'{name},{email}\n')
-    # cleanup
+    # send the actual invite link
+    try:
+        send_invite(name, email)
+    except Exception:
+        pass
+    # cleanup pending token
     cur.execute('DELETE FROM pending WHERE token=?', (token,))
     conn.commit()
-    return f'<h3>Thank you {name}! You are confirmed and will receive the invite shortly.</h3>'
+    return f'<h3>Thank you {name}! A Discord invite has been sent to {email}.</h3>'
 
 def send_confirmation(email, name, token):
     confirm_url = f"{BASE_URL}{url_for('confirm', token=token)}"
@@ -99,6 +105,26 @@ def send_confirmation(email, name, token):
         f"Please confirm your email address by clicking the link below:\n{confirm_url}\n\n"
         "Once confirmed, we’ll send you the invite link.\n\n"
         "If you didn’t request this, you can ignore this message.\n"
+    )
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = EMAIL_FROM
+    msg['To'] = email
+    msg.set_content(body)
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+        s.starttls()
+        s.login(SMTP_USER, SMTP_PASS)
+        s.send_message(msg)
+
+def send_invite(name, email):
+    """Send the Discord invite link after confirmation."""
+    subject = f"Your invite to {SERVER_NAME} on Discord"
+    body = (
+        f"Hi {name},\n\n"
+        "Thanks for confirming your subscription!\n"
+        f"Here’s your invite link to join {SERVER_NAME}:\n{INVITE_LINK}\n\n"
+        "See you inside!\n"
     )
     msg = EmailMessage()
     msg['Subject'] = subject

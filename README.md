@@ -104,7 +104,7 @@ You can auto-generate and send personalized Discord invite emails by using the p
    pip install openai
    ```
 
-### Usage
+### Usage of Invite Automation
 
 Run the script:
 
@@ -113,3 +113,28 @@ python invite_automation.py
 ```
 
 Each recipient in `recipients.csv` will receive a personalized invite email.
+
+### Opt-In Double-Confirmation Web Form
+
+You can also collect *opt-in* subscribers via a simple web subscription form powered by Flask.
+
+1. Install Flask:
+
+   ```bash
+   pip install flask
+   ```
+
+2. Ensure your SMTP and invite settings are set (same env vars used by `invite_automation.py`), plus:
+
+   | Variable   | Description                            |
+   |------------|----------------------------------------|
+   | `BASE_URL` | Public URL where `optin.py` is served  |
+
+3. Run the opt-in app:
+
+   ```bash
+   python optin.py
+   ```
+
+4. Point users at `BASE_URL/`, have them submit name & email, then click the emailed confirmation link.
+   Confirmed addresses are appended to `recipients.csv` and will receive your Discord invite.

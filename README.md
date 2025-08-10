@@ -64,4 +64,52 @@ Be sure to register your redirect URIs accordingly in the Spotify Developer Dash
    Optionally, you can pass a market code (`!music <market>`) or set `SPOTIFY_MARKET` to annotate results, but the playlist itself remains the US Top Hits chart; the helper always requests without a market filter to avoid errors.
 
 **Note:** The `!music` command uses Spotify's Client Credentials flow, which only supports read‑access to **public** playlists. Private or collaborative playlists will not be accessible and will result in empty track lists.
-  
+
+## Automated Invite Emailer
+
+You can auto-generate and send personalized Discord invite emails by using the provided `invite_automation.py` script, which calls the OpenAI API to draft email content and then sends messages via SMTP.
+
+### Prerequisites
+
+- Python 3.7+
+- `openai` Python package (`pip install openai`)
+
+### Setup
+
+1. Create a CSV file named `recipients.csv` in the project root with headers `name,email`, e.g.:
+
+   ```csv
+   name,email
+   Alice,alice@example.com
+   Bob,bob@example.com
+   ```
+
+2. Set the following environment variables:
+
+   | Variable          | Description                                                  |
+   |-------------------|--------------------------------------------------------------|
+   | `OPENAI_API_KEY`  | Your OpenAI API key                                          |
+   | `INVITE_LINK`     | The Discord invite link (e.g. `https://discord.gg/yourcode`) |
+   | `SERVER_NAME`     | (Optional) Display name of your server                       |
+   | `SMTP_HOST`       | SMTP server host (e.g. `smtp.gmail.com`)                     |
+   | `SMTP_PORT`       | SMTP port (default `587`)                                    |
+   | `SMTP_USER`       | SMTP username/login                                          |
+   | `SMTP_PASS`       | SMTP password                                                |
+   | `EMAIL_FROM`      | From address displayed in outgoing emails                    |
+   | `EMAIL_SUBJECT`   | (Optional) Email subject line                                |
+
+3. Install dependencies:
+
+   ```bash
+   pip install openai
+   ```
+
+### Usage
+
+Run the script:
+
+```bash
+python invite_automation.py
+```
+
+Each recipient in `recipients.csv` will receive a personalized invite email.

@@ -71,12 +71,12 @@ You can auto-generate and send personalized Discord invite emails by using the p
 
 ### Prerequisites
 
-- Python 3.7+
+- Python 3.7+
 - `openai` Python package (`pip install openai`)
 
 ### Setup
 
-1. Create a CSV file named `recipients.csv` in the project root with headers `name,email`, e.g.:
+1. **Prepare your recipients list** by creating `recipients.csv` in the project root with headers `name,email`, for example:
 
    ```csv
    name,email
@@ -84,35 +84,42 @@ You can auto-generate and send personalized Discord invite emails by using the p
    Bob,bob@example.com
    ```
 
-2. Set the following environment variables:
+2. **Provision OpenAI & email credentials** by adding them to your local `.env` (git‑ignored):
 
-   | Variable          | Description                                                  |
-   |-------------------|--------------------------------------------------------------|
-   | `OPENAI_API_KEY`  | Your OpenAI API key                                          |
-   | `INVITE_LINK`     | The Discord invite link (e.g. `https://discord.gg/yourcode`) |
-   | `SERVER_NAME`     | (Optional) Display name of your server                       |
-   | `SMTP_HOST`       | SMTP server host (e.g. `smtp.gmail.com`)                     |
-   | `SMTP_PORT`       | SMTP port (default `587`)                                    |
-   | `SMTP_USER`       | SMTP username/login                                          |
-   | `SMTP_PASS`       | SMTP password                                                |
-   | `EMAIL_FROM`      | From address displayed in outgoing emails                    |
-   | `EMAIL_SUBJECT`   | (Optional) Email subject line                                |
+   ```dotenv
+   # OpenAI
+   OPENAI_API_KEY=sk-...your-key...
 
-3. Install dependencies:
+   # SparkPost SMTP (example)
+   SMTP_HOST=smtp.sparkpostmail.com
+   SMTP_PORT=587
+   SMTP_USER=SMTP_Injection
+   SMTP_PASS=YOUR_SPARKPOST_API_KEY
+   EMAIL_FROM="Your Name <you@yourdomain.com>"
+
+   # Discord invite
+   INVITE_LINK=https://discord.gg/yourcode
+   SERVER_NAME="LoopBot Creators’ Hub"
+
+   # (Optional) override default email subject
+   EMAIL_SUBJECT="Join LoopBot Creators’ Hub!"
+   ```
+
+3. **Install** the OpenAI client and dotenv loader:
 
    ```bash
-   pip install openai
+   pip install openai python-dotenv
    ```
 
 ### Usage of Invite Automation
 
-Run the script:
+Run the script to generate & send invites:
 
 ```bash
 python invite_automation.py
 ```
 
-Each recipient in `recipients.csv` will receive a personalized invite email.
+Every entry in `recipients.csv` will receive a personalized invite email (via SparkPost SMTP).
 
 ### Opt-In Double-Confirmation Web Form
 

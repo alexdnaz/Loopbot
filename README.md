@@ -137,4 +137,15 @@ You can also collect *opt-in* subscribers via a simple web subscription form pow
    ```
 
 4. Point users at `BASE_URL/`, have them submit name & email, then click the emailed confirmation link.
-   Confirmed addresses are appended to `recipients.csv` and will receive your Discord invite.
+   Confirmed addresses are appended to `recipients.csv`, users receive your Discord invite,
+   and can download the free lead‑magnet PDF.
+
+### Lead Magnet PDF
+
+Place your free guide (the “lead magnet”) as `lead_magnet.pdf` in the `static/` directory:
+
+```
+static/lead_magnet.pdf
+```
+
+After a user confirms, the download link `BASE_URL/static/lead_magnet.pdf` is included in the invite email.

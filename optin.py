@@ -41,15 +41,16 @@ app.secret_key = os.getenv('SECRET_KEY', os.urandom(16))
 
 SUBSCRIBE_FORM = '''
 <!doctype html>
-<title>Subscribe</title>
+<title>Get Your Free Guide & Join Our Discord</title>
 {% with messages = get_flashed_messages() %}
   {% if messages %}<ul>{% for m in messages %}<li>{{m}}</li>{% endfor %}</ul>{% endif %}
 {% endwith %}
-<h2>Join our Discord community</h2>
+<h2>Claim Your Free Guide to LoopBot + Community Invite</h2>
+<p>Enter your name and email below to receive our free PDF guide on mastering LoopBot, plus an invite to our Discord server.</p>
 <form method=post>
   <label>Name: <input type=text name=name required></label><br>
   <label>Email: <input type=email name=email required></label><br>
-  <input type=submit value='Subscribe'>
+  <input type=submit value='Send Me the Guide & Invite'>
 </form>
 '''
 
@@ -122,8 +123,9 @@ def send_invite(name, email):
     subject = f"Your invite to {SERVER_NAME} on Discord"
     body = (
         f"Hi {name},\n\n"
-        "Thanks for confirming your subscription!\n"
+        "Thanks for confirming your subscription!\n\n"
         f"Here’s your invite link to join {SERVER_NAME}:\n{INVITE_LINK}\n\n"
+        f"You can also download your free guide here: {BASE_URL}/static/lead_magnet.pdf\n\n"
         "See you inside!\n"
     )
     msg = EmailMessage()

@@ -24,8 +24,6 @@ BASE_URL = os.getenv('BASE_URL', 'http://localhost:5000')
 INVITE_LINK = os.getenv('INVITE_LINK', '')
 SERVER_NAME = os.getenv('SERVER_NAME', 'Discord Server')
 
-if not all([SMTP_HOST, SMTP_USER, SMTP_PASS, EMAIL_FROM, INVITE_LINK]):
-    raise RuntimeError('SMTP_HOST, SMTP_USER, SMTP_PASS, EMAIL_FROM, and INVITE_LINK must be set')
 
 # Setup DB for pending tokens
 conn = sqlite3.connect('optin.db', check_same_thread=False)
@@ -140,8 +138,13 @@ def send_invite(name, email):
         s.send_message(msg)
 
 if __name__ == '__main__':
+    # Ensure required environment variables
+    missing = [v for v in ('SMTP_HOST','SMTP_USER','SMTP_PASS','EMAIL_FROM','INVITE_LINK') if not os.getenv(v)]
+    if missing:
+        raise RuntimeError(f"Missing environment variables: {', '.join(missing)}")
     # preload CSV header if missing
     if not os.path.exists('recipients.csv'):
         with open('recipients.csv', 'w') as f:
             f.write('name,email\n')
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.getenv('PORT', '5000'))
+    app.run(host='0.0.0.0', port=port)

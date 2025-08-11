@@ -1,5 +1,6 @@
 discord.py==2.3.2              # Discord bot framework
 python-dotenv==1.0.1           # Environment variable management
+Flask>=2.0.0                   # Web framework for opt-in landing page
 schedule==1.2.1                # Task scheduling for daily challenges
 aiohttp==3.9.5                 # Asynchronous HTTP requests (useful for webhooks or API calls)
 psutil==5.9.8                  # System and process utilities (for monitoring bot health)

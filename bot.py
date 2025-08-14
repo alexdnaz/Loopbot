@@ -132,6 +132,11 @@ persistent_dir = (
 )
 # Debug: verify which directory is used for persistence
 print(f"🔍 Persistent dir is: {persistent_dir}")
+if persistent_dir and os.path.isdir(persistent_dir):
+    try:
+        print(f"📂 Volume contents: {sorted(os.listdir(persistent_dir))}")
+    except Exception:
+        pass
 explicit_db = os.getenv('DB_PATH')
 if persistent_dir:
     # Ensure the persistent directory exists

@@ -25,6 +25,9 @@ Steps:
    - `OPENAI_API_KEY` (required for AI prompts)
    - `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` (required for `!music` command)
    - `SPOTIFY_MARKET` (required; a 2-letter country code, e.g. `US`, to fetch that market's Top 10)
+  
+   - **Optional tracing control:** `OPENAI_AGENTS_DISABLE_TRACING=1` to disable built-in OpenAI Agents tracing
+  
    - **Prerequisite:** `jq` must be installed in your environment (or Docker image) for helper script JSON parsing
    - (Optional) `RUN_SCHEDULE`, `DAILY_BANNER_URL`, etc.
 5. **Persisting the SQLite database:**
@@ -108,18 +111,23 @@ You can auto-generate and send personalized Discord invite emails by using the p
 3. **Install** the OpenAI client and dotenv loader:
 
    ```bash
-   pip install openai python-dotenv
+   pip install openai python-dotenv openai-agents
    ```
 
 ### Usage of Invite Automation
 
-Run the script to generate & send invites:
+Run the script to generate & send invites. Tracing is enabled by default so you can monitor runs in the
+[OpenAI Traces dashboard](https://platform.openai.com/traces). To disable tracing for a single run:
+
+```bash
+export OPENAI_AGENTS_DISABLE_TRACING=1
+```
 
 ```bash
 python invite_automation.py
 ```
 
-Every entry in `recipients.csv` will receive a personalized invite email (via SparkPost SMTP).
+Every entry in `recipients.csv` will receive a personalized invite email.
 
 ### Opt-In Double-Confirmation Web Form
 
@@ -143,9 +151,8 @@ You can also collect *opt-in* subscribers via a simple web subscription form pow
    python optin.py
    ```
 
-4. Point users at `BASE_URL/`, have them submit name & email, then click the emailed confirmation link.
-   Confirmed addresses are appended to `recipients.csv`, users receive your Discord invite,
-   and can download the free lead‑magnet PDF.
+4. After submitting your details, you’ll be redirected to a thank‑you page instructing you to check your email for a confirmation link.
+   Once you click that link, you’ll receive a Discord invite **and** the lead‑magnet PDF as an email attachment.
 
 ### Lead Magnet PDF
 

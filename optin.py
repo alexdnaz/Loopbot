@@ -7,12 +7,28 @@ Subscribers are added to recipients.csv upon confirmation.
 """
 
 import os
+from pathlib import Path
+
+# Optionally load a .env file if python-dotenv is installed
+try:
+    from dotenv import load_dotenv, find_dotenv
+except ImportError:
+    load_dotenv = find_dotenv = None
+
+if load_dotenv:
+    env_path = Path(__file__).parent / '.env'
+    # Prefer .env next to this script, else any .env in parent dirs
+    if env_path.exists():
+        load_dotenv(env_path)
+    else:
+        load_dotenv(find_dotenv())
 import uuid
 import sqlite3
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
-from flask import Flask, request, redirect, url_for, render_template_string, flash
+from flask import Flask, request, redirect, url_for, render_template_string
+import sys
 
 # Configuration from environment
 SMTP_HOST = os.getenv('SMTP_HOST')
@@ -40,9 +56,6 @@ app.secret_key = os.getenv('SECRET_KEY', os.urandom(16))
 SUBSCRIBE_FORM = '''
 <!doctype html>
 <title>Get Your Free Guide & Join Our Discord</title>
-{% with messages = get_flashed_messages() %}
-  {% if messages %}<ul>{% for m in messages %}<li>{{m}}</li>{% endfor %}</ul>{% endif %}
-{% endwith %}
 <h2>Claim Your Free Guide to LoopBot + Community Invite</h2>
 <p>Enter your name and email below to receive our free PDF guide on mastering LoopBot, plus an invite to our Discord server.</p>
 <form method=post>
@@ -59,11 +72,17 @@ def subscribe():
         email = request.form.get('email').strip().lower()
         token = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
-        cur.execute('INSERT INTO pending(token,name,email,created) VALUES (?,?,?,?)', (token, name, email, now))
+        cur.execute(
+            'INSERT INTO pending(token,name,email,created) VALUES (?,?,?,?)',
+            (token, name, email, now)
+        )
         conn.commit()
-        send_confirmation(email, name, token)
-        flash('Confirmation email sent. Please check your inbox.')
-        return redirect(url_for('subscribe'))
+        try:
+            send_confirmation(email, name, token)
+        except Exception as e:
+            print(f"Error sending confirmation email: {e}", file=sys.stderr)
+            return '<h3>Oops—could not send confirmation email. Please try again later.</h3>', 500
+        return redirect(url_for('thanks'))
     return render_template_string(SUBSCRIBE_FORM)
 
 @app.route('/confirm/<token>')
@@ -131,6 +150,18 @@ def send_invite(name, email):
     msg['From'] = EMAIL_FROM
     msg['To'] = email
     msg.set_content(body)
+    # Attach the lead-magnet PDF if present
+    pdf_path = Path(__file__).parent / 'static' / 'lead_magnet.pdf'
+    if pdf_path.exists():
+        with open(pdf_path, 'rb') as pdf_file:
+            msg.add_attachment(
+                pdf_file.read(),
+                maintype='application',
+                subtype='pdf',
+                filename=pdf_path.name,
+            )
+    else:
+        print(f"Warning: PDF not found at {pdf_path}", file=sys.stderr)
 
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
         s.starttls()
@@ -148,3 +179,13 @@ if __name__ == '__main__':
             f.write('name,email\n')
     port = int(os.getenv('PORT', '5000'))
     app.run(host='0.0.0.0', port=port)
+
+
+@app.route('/thanks')
+def thanks():
+    return (
+        '<!doctype html>'
+        '<title>Thank You!</title>'
+        '<h3>Thank you! A confirmation email has been sent. '
+        'Please check your inbox (or spam folder) to confirm and receive your PDF & Discord invite.</h3>'
+    )

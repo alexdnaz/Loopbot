@@ -10,6 +10,7 @@ import logging
 from datetime import datetime, time as dtime, timezone, timedelta
 
 import openai
+from agents import trace
 import sys
 import random
 import re
@@ -1055,4 +1056,5 @@ async def on_command_error(ctx, error):
         return
     raise error
 
-bot.run(TOKEN)
+with trace("LoopBot"):
+    bot.run(TOKEN)

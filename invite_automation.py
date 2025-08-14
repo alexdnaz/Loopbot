@@ -10,6 +10,7 @@ import csv
 import smtplib
 from email.message import EmailMessage
 import openai
+from agents import trace
 
 # Configuration from environment variables
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -89,4 +90,6 @@ def main():
         print("Done.\n")
 
 if __name__ == '__main__':
-    main()
+    # Wrap the invite workflow in a trace to collect events in the OpenAI Traces dashboard
+    with trace("Invite Automation"):
+        main()

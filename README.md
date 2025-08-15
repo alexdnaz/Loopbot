@@ -186,3 +186,26 @@ You can retrieve your Railway volume configuration (ID, name, mount path) using 
    ```
 
 This will output all volumes attached to your Loopbot service along with their mount paths.
+
+## Fetch Volume Metadata via GraphQL
+
+You can retrieve your Railway volume configuration (ID, name, mount path) using the Public GraphQL API and our helper script.
+
+1. Add your credentials and identifiers to `.env`:
+   ```dotenv
+   RAILWAY_API_KEY=sk-...
+   RAILWAY_PROJECT_ID=<your-project-id>
+   RAILWAY_SERVICE_ID=<your-service-id>
+   ```
+
+2. Install dependencies (GraphQL helper uses `requests` and `python-dotenv`):
+   ```bash
+   pip install python-dotenv requests
+   ```
+
+3. Run the script to list your volumes:
+   ```bash
+   python fetch_volume_metadata.py
+   ```
+
+This will output all volumes attached to your Loopbot service along with their mount paths.

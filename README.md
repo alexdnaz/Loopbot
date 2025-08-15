@@ -168,7 +168,14 @@ After a user confirms, the download link `BASE_URL/static/lead_magnet.pdf` is in
 
 You can retrieve your Railway volume configuration (ID, name, mount path) using the Public GraphQL API and our helper script.
 
-1. Add your credentials and identifiers to `.env`:
+1. Option A: If you have a **Project Access Token**, fetch your Project and Environment IDs via GraphQL:
+   ```bash
+   pip install python-dotenv requests
+   python fetch_project_env.py
+   ```
+   Copy the printed `PROJECT_ID` and `ENVIRONMENT_ID` into your `.env` for step 2.
+
+2. Add your credentials and identifiers to `.env`:
    ```dotenv
    RAILWAY_API_KEY=sk-...
    RAILWAY_PROJECT_ID=<your-project-id>

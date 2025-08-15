@@ -21,7 +21,7 @@ if not API_KEY or not PROJECT_ID or not SERVICE_ID:
     print("Missing one of RAILWAY_API_KEY, PROJECT_ID, or SERVICE_ID in .env", file=sys.stderr)
     sys.exit(1)
 
-url = 'https://api.railway.app/graphql'
+url = 'https://railway.app/graphql'
 headers = {
     'Authorization': f'Bearer {API_KEY}',
     'Content-Type': 'application/json'

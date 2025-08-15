@@ -180,7 +180,7 @@ You can retrieve your Railway volume configuration (ID, name, mount path) using 
    pip install python-dotenv requests
    ```
 
-3. Run the script to list your volumes:
+3. Run the script to list your volumes (will call https://railway.app/graphql):
    ```bash
    python fetch_volume_metadata.py
    ```

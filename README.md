@@ -45,6 +45,54 @@ Steps:
      If none are available, the bot will exit with an error.
 5. Deploy – LoopBot will stay online continuously.
 
+## Railway SSH & File Transfer
+
+Railway SSH differs significantly from traditional SSH implementations. Understanding how it works helps explain its capabilities and limitations.
+
+Railway SSH does not use the standard SSH protocol (sshd). Instead, it establishes connections via a custom protocol built on top of websockets.
+
+This approach provides several advantages:
+
+- No need to configure SSH daemons in your containers.
+- Secure communication through Railway's existing authentication.
+- Works with any container that has a shell available.
+
+This approach is secure by design:
+
+- No SSH daemon exposed publicly on your containers.
+- All communication goes through Railway's authenticated infrastructure.
+- Services remain isolated from direct internet access.
+- Uses Railway's existing security and access control mechanisms.
+
+Limitations and Workarounds
+
+Understanding Railway SSH's limitations helps you plan appropriate workflows and implement effective workarounds for tasks that aren't directly supported.
+
+#### File Transfer Limitations
+
+Railway SSH does not support traditional file transfer methods:
+
+- No SCP (Secure Copy Protocol) support for copying files between local and remote systems.
+- No sFTP (SSH File Transfer Protocol) functionality for file management.
+- No direct file download/upload capabilities through the SSH connection.
+
+#### File transfer workarounds
+
+**Connect volume to file explorer service:** Deploy a simple file browser service that mounts the same volume as your main application. This provides web-based access to your files for download and upload operations.
+
+**Use CURL for file uploads:** From within the SSH session, upload files to external services:
+
+```bash
+# Upload file to a temporary file sharing service
+curl -X POST -F "file=@database_dump.sql" https://file.io/
+
+# Upload to cloud storage (example with AWS S3)
+aws s3 cp database_dump.sql s3://your-bucket/backups/
+
+# Upload via HTTP to your own endpoint
+curl -X POST -F "file=@logfile.txt" https://your-app.com/admin/upload
+```
+
 ## Crypto price tracker
 LoopBot can now post Bitcoin, Ethereum, and Solana prices on a schedule.
 - To enable: set a volume or `DB_PATH` as above and redeploy.

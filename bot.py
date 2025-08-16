@@ -1020,13 +1020,20 @@ async def on_message(message):
     raw = message.content.strip()
     if raw:
         now_iso = datetime.now(timezone.utc).isoformat()
-        parts = raw.split()
-        url = parts[0]
-        tag_list = [w.lstrip('#') for w in parts[1:] if w.startswith('#')]
+        words = raw.split()
+        # extract tags (e.g. #tag)
+        tag_list = [w.lstrip('#') for w in words if w.startswith('#')]
         tags = ' '.join(tag_list)
+        # determine body: if first word is a URL, treat as link; otherwise use full text minus tags
+        first = words[0]
+        if first.startswith(('http://', 'https://')):
+            body = first
+        else:
+            body = ' '.join(w for w in words if not w.startswith('#'))
+        # record submission
         c.execute(
             "INSERT INTO link_submissions (user_id, link, timestamp, tags, orig_message_id) VALUES (?, ?, ?, ?, ?)",
-            (uid, url, now_iso, tags, message.id)
+            (uid, body, now_iso, tags, message.id)
         )
         sub_id = c.lastrowid
         conn.commit()
@@ -1037,14 +1044,15 @@ async def on_message(message):
         )
         conn.commit()
         chan = bot.get_channel(VOTING_HALL_CHANNEL_ID)
-        content = f"📥 **Link Submission from {message.author.mention}:** {url}"
+        # post full body text
+        content = f"📥 **Link Submission from {message.author.mention}:** {body}"
         if tags:
             content += "  " + " ".join(f"#{t}" for t in tag_list)
         sent = await chan.send(content)
         # Pre-add voting reactions for neutral starting point
         await sent.add_reaction("👍")
         await sent.add_reaction("👎")
-        # Only record message ID for voting
+        # record message ID for voting
         c.execute(
             "UPDATE link_submissions SET message_id = ? WHERE id = ?",
             (sent.id, sub_id)

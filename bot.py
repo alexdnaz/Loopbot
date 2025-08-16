@@ -11,7 +11,7 @@ from datetime import datetime, time as dtime, timezone, timedelta
 
 import openai
 from openai import OpenAIError
-# Async OpenAI client for v1.x API
+# Async OpenAI client for v1.x API (sync methods run via asyncio.to_thread)
 client = openai.OpenAI()
 from agents import trace
 import sys
@@ -233,7 +233,8 @@ static_prompts = itertools.cycle(_fallback_prompts)
 # Generate a prompt using GPT
 async def generate_ai_prompt():
     try:
-        data = await client.chat.completions.create(
+        data = await asyncio.to_thread(
+            client.chat.completions.create,
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": (
@@ -908,7 +909,8 @@ async def chat(ctx, *, prompt: str = None):
     # Debug: log the outgoing prompt
     print(f"[AI DEBUG] Prompt: {prompt}")
     try:
-        resp = await client.chat.completions.create(
+        resp = await asyncio.to_thread(
+            client.chat.completions.create,
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful AI assistant."},

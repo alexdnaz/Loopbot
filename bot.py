@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, time as dtime, timezone, timedelta
 
 import openai
-from openai.error import OpenAIError
+from openai import OpenAIError
 from agents import trace
 import sys
 import random

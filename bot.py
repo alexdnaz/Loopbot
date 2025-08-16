@@ -10,6 +10,7 @@ import logging
 from datetime import datetime, time as dtime, timezone, timedelta
 
 import openai
+from openai.error import OpenAIError
 from agents import trace
 import sys
 import random
@@ -899,6 +900,8 @@ async def chat(ctx, *, prompt: str = None):
     """Chat with the AI assistant. Usage: `!chat your question here`"""
     if not prompt:
         return await ctx.send("❌ Please provide a message for the AI, e.g. `!chat Hello! How are you?`")
+    if not openai.api_key:
+        return await ctx.send("❌ OPENAI_API_KEY not configured; chat is unavailable.")
     try:
         resp = await openai.ChatCompletion.acreate(
             # Use the free tier model
@@ -913,8 +916,10 @@ async def chat(ctx, *, prompt: str = None):
         reply = resp.choices[0].message.content.strip()
         await ctx.send(reply)
     except Exception as e:
-        await ctx.send("⚠️ AI request failed. Please try again later.")
-        print(f"[AI ERROR] {e}")
+        # Surface any OpenAI error messages when possible
+        err_msg = str(e)
+        await ctx.send(f"⚠️ AI request failed: {err_msg}")
+        print(f"[AI ERROR] {err_msg}")
 
 
 # Giphy search command

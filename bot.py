@@ -11,6 +11,8 @@ from datetime import datetime, time as dtime, timezone, timedelta
 
 import openai
 from openai import OpenAIError
+# Async OpenAI client for v1.x API
+client = openai.OpenAI()
 from agents import trace
 import sys
 import random
@@ -231,7 +233,7 @@ static_prompts = itertools.cycle(_fallback_prompts)
 # Generate a prompt using GPT
 async def generate_ai_prompt():
     try:
-        response = openai.ChatCompletion.acreate(
+        data = await client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": (
@@ -247,7 +249,6 @@ async def generate_ai_prompt():
             frequency_penalty=0.5,
             presence_penalty=0.0,
         )
-        data = await response
         return data.choices[0].message.content.strip()
     except Exception as e:
         print(f"[❌] OpenAI error: {e}")
@@ -907,8 +908,7 @@ async def chat(ctx, *, prompt: str = None):
     # Debug: log the outgoing prompt
     print(f"[AI DEBUG] Prompt: {prompt}")
     try:
-        resp = await openai.ChatCompletion.acreate(
-            # Use the free tier model
+        resp = await client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful AI assistant."},
@@ -921,12 +921,10 @@ async def chat(ctx, *, prompt: str = None):
         await ctx.send(reply)
         print(f"[AI DEBUG] Reply: {reply}")
     except OpenAIError as e:
-        # Surface OpenAI-specific errors
         err_msg = str(e)
         await ctx.send(f"⚠️ AI request failed: {err_msg}")
         print(f"[AI ERROR] OpenAIError: {err_msg}")
     except Exception as e:
-        # Catch-all for unexpected errors
         await ctx.send(f"⚠️ Unexpected error during AI request: {e}")
         print(f"[AI ERROR] {e}")
 

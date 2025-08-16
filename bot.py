@@ -900,8 +900,12 @@ async def chat(ctx, *, prompt: str = None):
     """Chat with the AI assistant. Usage: `!chat your question here`"""
     if not prompt:
         return await ctx.send("❌ Please provide a message for the AI, e.g. `!chat Hello! How are you?`")
-    if not openai.api_key:
+    # Ensure the OpenAI key is configured
+    if not os.getenv('OPENAI_API_KEY'):
+        print("[AI DEBUG] Missing OPENAI_API_KEY")
         return await ctx.send("❌ OPENAI_API_KEY not configured; chat is unavailable.")
+    # Debug: log the outgoing prompt
+    print(f"[AI DEBUG] Prompt: {prompt}")
     try:
         resp = await openai.ChatCompletion.acreate(
             # Use the free tier model
@@ -915,11 +919,16 @@ async def chat(ctx, *, prompt: str = None):
         )
         reply = resp.choices[0].message.content.strip()
         await ctx.send(reply)
-    except Exception as e:
-        # Surface any OpenAI error messages when possible
+        print(f"[AI DEBUG] Reply: {reply}")
+    except OpenAIError as e:
+        # Surface OpenAI-specific errors
         err_msg = str(e)
         await ctx.send(f"⚠️ AI request failed: {err_msg}")
-        print(f"[AI ERROR] {err_msg}")
+        print(f"[AI ERROR] OpenAIError: {err_msg}")
+    except Exception as e:
+        # Catch-all for unexpected errors
+        await ctx.send(f"⚠️ Unexpected error during AI request: {e}")
+        print(f"[AI ERROR] {e}")
 
 
 # Giphy search command

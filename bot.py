@@ -428,6 +428,10 @@ async def crypto_price_tracker():
     embeds = []
     now = datetime.now(timezone.utc)
     for coin in data:
+        # Skip any invalid entries that are not expected dict objects
+        if not isinstance(coin, dict):
+            print(f"⚠️ Skipping invalid coin entry: {coin!r}")
+            continue
         name = coin.get('name', '').title()
         symbol = coin.get('symbol', '').upper()
         price = coin.get('current_price')

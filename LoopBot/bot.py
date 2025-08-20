@@ -20,6 +20,7 @@ import re
 
 from bs4 import BeautifulSoup
 import base64, csv
+import math
 
 # Nitter instances (fallback) for lightweight Twitter scraping
 NITTER_INSTANCES = [
@@ -67,6 +68,12 @@ VOTE_SUMMARY_HOUR = int(os.getenv('VOTE_SUMMARY_HOUR', '0'))
 VOTE_SUMMARY_MINUTE = int(os.getenv('VOTE_SUMMARY_MINUTE', '0'))
 # Crypto price update interval in hours (default: every hour)
 CRYPTO_INTERVAL_HOURS = int(os.getenv('CRYPTO_INTERVAL_HOURS', '1'))
+# Voting lock window (hours) after submission; votes outside this window are ignored
+VOTE_WINDOW_HOURS = int(os.getenv('VOTE_WINDOW_HOURS', '24'))
+# Optional role IDs to assign upon reaching certain levels
+XP_ROLE_L3 = int(os.getenv('XP_ROLE_L3', '0')) or None
+XP_ROLE_L5 = int(os.getenv('XP_ROLE_L5', '0')) or None
+XP_ROLE_L10 = int(os.getenv('XP_ROLE_L10', '0')) or None
 
 # Intents
 intents = discord.Intents.default()
@@ -131,7 +138,7 @@ MEMES_CHANNEL_ID = 1393811645922545745       # memes-and-vibes
 persistent_dir = (
     os.getenv('RAILWAY_PERSISTENT_DIR')
     or os.getenv('DATA_DIR')
-    or ('/data' if os.path.isdir('/data') else None)
+    or (os.path.join(os.getcwd(), 'data') if os.path.isdir(os.path.join(os.getcwd(), 'data')) else None)
 )
 # Debug: verify which directory is used for persistence
 print(f"🔍 Persistent dir is: {persistent_dir}")
@@ -208,6 +215,35 @@ c.execute('''CREATE TABLE IF NOT EXISTS votes (
 )''')
 conn.commit()
 
+## XP & leveling tables
+c.execute('''CREATE TABLE IF NOT EXISTS users (
+    user_id TEXT PRIMARY KEY,
+    xp INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 0,
+    last_xp_ts TEXT
+)''')
+c.execute('''CREATE TABLE IF NOT EXISTS xp_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    delta INTEGER,
+    reason TEXT,
+    ts TEXT
+)''')
+
+## Streak tracking table
+c.execute('''CREATE TABLE IF NOT EXISTS streaks (
+    user_id TEXT PRIMARY KEY,
+    current INTEGER DEFAULT 0,
+    best INTEGER DEFAULT 0,
+    last_date TEXT
+)''')
+
+## Optional DM reminders opt-in
+c.execute('''CREATE TABLE IF NOT EXISTS reminders (
+    user_id TEXT PRIMARY KEY
+)''')
+conn.commit()
+
 # Migrate existing tables to add missing columns if needed
 try:
     c.execute('ALTER TABLE audio_submissions ADD COLUMN tags TEXT')
@@ -218,6 +254,23 @@ try:
     conn.commit()
 except sqlite3.OperationalError:
     pass
+
+# Messages & voting v2 tables
+c.execute('''CREATE TABLE IF NOT EXISTS messages (
+    message_id INTEGER PRIMARY KEY,
+    channel_id INTEGER,
+    author_id TEXT,
+    timestamp TEXT
+)''')
+c.execute('''CREATE TABLE IF NOT EXISTS message_votes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id INTEGER,
+    voter_id TEXT,
+    score INTEGER,
+    ts TEXT,
+    UNIQUE(message_id, voter_id)
+)''')
+conn.commit()
 
 # Static fallback prompts (shuffled to vary order)
 _fallback_prompts = [
@@ -306,6 +359,18 @@ async def post_daily_challenge():
     """Post the daily creative prompt at the configured time."""
     channel = bot.get_channel(CHALLENGE_CHANNEL_ID)
     if channel:
+        # Send DM reminders to opted-in users before the daily challenge
+        c.execute("SELECT user_id FROM reminders")
+        for (uid,) in c.fetchall():
+            user = bot.get_user(int(uid))
+            if user:
+                try:
+                    await user.send(
+                        "🔔 Reminder: don't forget to submit today's creative challenge!"
+                    )
+                except Exception:
+                    pass
+
         prompt = await get_prompt()
         # Post daily prompt as an embed for richer formatting
         embed = discord.Embed(
@@ -357,40 +422,34 @@ async def post_vote_summary():
     """Post a daily summary of top-voted submissions in the voting-hall channel."""
     channel = bot.get_channel(VOTING_HALL_CHANNEL_ID)
     if channel:
-        # Trending = votes cast in the last 24 hours
-        since = datetime.now(timezone.utc) - timedelta(days=1)
+        # Trending = votes cast in the last VOTE_WINDOW_HOURS
+        since = datetime.now(timezone.utc) - timedelta(hours=VOTE_WINDOW_HOURS)
         threshold = since.isoformat()
         c.execute(
-            "SELECT submission_id, SUM(score) AS total FROM votes "
-            "WHERE timestamp >= ? GROUP BY submission_id "
+            "SELECT message_id, SUM(score) AS total FROM message_votes "
+            "WHERE ts >= ? GROUP BY message_id "
             "ORDER BY total DESC LIMIT 5",
             (threshold,)
         )
         rows = c.fetchall()
         if not rows:
-            await channel.send("🏅 No votes have been cast yet.")
+            await channel.send("🏅 No votes have been cast in the recent window.")
             return
         embed = discord.Embed(
-            title="📈 Trending: Top 5 in last 24h",
+            title="📈 Trending: Top 5 in last {VOTE_WINDOW_HOURS}h",
             color=discord.Color.green(),
         )
-        for i, (sub_id, total) in enumerate(rows, start=1):
-            # label from link or file
-            c.execute("SELECT link FROM link_submissions WHERE id = ?", (sub_id,))
-            r = c.fetchone()
-            if r:
-                label = r[0]
-            else:
-                c.execute("SELECT filename FROM audio_submissions WHERE id = ?", (sub_id,))
-                ar = c.fetchone()
-                label = ar[0] if ar else f"Submission #{sub_id}"
+        for i, (msg_id, total) in enumerate(rows, start=1):
+            try:
+                msg = await channel.fetch_message(msg_id)
+                label = f"[View submission]({msg.jump_url})"
+            except Exception:
+                label = f"Submission #{msg_id}"
             embed.add_field(
                 name=f"{i}. {label}",
-                value=f"Total: {total} Votes",
+                value=f"Total: {total} votes",
                 inline=False,
             )
-        # Optional: add a thumbnail or footer
-        # embed.set_thumbnail(url=channel.guild.icon_url)
         await channel.send(embed=embed)
     else:
         print("⚠️ Voting hall channel not found. Check VOTING_HALL_CHANNEL_ID.")
@@ -464,10 +523,181 @@ async def crypto_price_tracker():
         await channel.send(embeds=chunk)
 
 
+# XP & leveling: accrue XP on messages (1 XP per 60s), track levels, assign roles
+@bot.event
+async def on_message(message):
+    # Record any new submission (attachments) in the submissions channel
+    if message.channel.id == SUBMISSIONS_CHANNEL_ID and message.attachments and not message.author.bot:
+        try:
+            c.execute(
+                "INSERT OR IGNORE INTO messages(message_id, channel_id, author_id, timestamp) VALUES(?,?,?,?)",
+                (
+                    message.id,
+                    message.channel.id,
+                    str(message.author.id),
+                    message.created_at.replace(tzinfo=timezone.utc).isoformat(),
+                ),
+            )
+            conn.commit()
+        except Exception as e:
+            print(f"⚠️ Failed to record submission message: {e}")
+
+    # Ignore bots and blacklisted channels for XP & voting logic
+    if message.author.bot:
+        return
+    if message.channel.id in (RULES_CHANNEL_ID, MODERATOR_ONLY_CHANNEL_ID):
+        return
+    now = datetime.now(timezone.utc)
+    user_id = str(message.author.id)
+    # Fetch or initialize user record
+    c.execute("SELECT xp, level, last_xp_ts FROM users WHERE user_id = ?", (user_id,))
+    row = c.fetchone()
+    if row:
+        xp, lvl, last_ts = row
+        last_ts = datetime.fromisoformat(last_ts) if last_ts else None
+    else:
+        xp, lvl, last_ts = 0, 0, None
+    # Award XP if last award was over 60 seconds ago
+    if last_ts is None or (now - last_ts).total_seconds() >= 60:
+        new_xp = xp + 1
+        new_lvl = int(0.1 * math.sqrt(new_xp))
+        # Upsert user XP and level
+        c.execute(
+            "INSERT INTO users(user_id, xp, level, last_xp_ts) VALUES(?,?,?,?) "
+            "ON CONFLICT(user_id) DO UPDATE SET xp=excluded.xp, level=excluded.level, last_xp_ts=excluded.last_xp_ts",
+            (user_id, new_xp, new_lvl, now.isoformat()),
+        )
+        # Record event
+        c.execute(
+            "INSERT INTO xp_events(user_id, delta, reason, ts) VALUES(?,?,?,?)",
+            (user_id, 1, "message", now.isoformat()),
+        )
+        conn.commit()
+        # Assign level-up role if configured
+        if new_lvl > lvl:
+            try:
+                role_id = None
+                if new_lvl >= 10 and XP_ROLE_L10:
+                    role_id = XP_ROLE_L10
+                elif new_lvl >= 5 and XP_ROLE_L5:
+                    role_id = XP_ROLE_L5
+                elif new_lvl >= 3 and XP_ROLE_L3:
+                    role_id = XP_ROLE_L3
+                if role_id:
+                    role = message.guild.get_role(role_id)
+                    if role:
+                        await message.author.add_roles(role, reason="Level up")
+            except Exception as e:
+                print(f"⚠️ Failed to assign level role: {e}")
+    # Continue with other commands and events
+    await bot.process_commands(message)
+
 # Commands
 @bot.command()
 async def ping(ctx):
     await ctx.send("🏓 Pong!")
+
+
+@bot.command()
+async def streak(ctx):
+    """Show your current and best daily submission streak."""
+    user_id = str(ctx.author.id)
+    c.execute(
+        "SELECT current, best FROM streaks WHERE user_id = ?", (user_id,)
+    )
+    row = c.fetchone()
+    if not row:
+        await ctx.send("🔸 You have no recorded streak yet. Submit something to start your streak!")
+        return
+    current, best = row
+    await ctx.send(f"🔸 Current streak: {current} days. Best streak: {best} days.")
+
+
+@bot.command()
+async def streakboard(ctx):
+    """Show top current streaks among all users."""
+    c.execute(
+        "SELECT user_id, current, best FROM streaks ORDER BY current DESC LIMIT 5"
+    )
+    rows = c.fetchall()
+    if not rows:
+        await ctx.send("🔸 No streaks recorded yet.")
+        return
+    text = "🏅 Top 5 Current Streaks:"
+    for i, (uid, current, best) in enumerate(rows, start=1):
+        text += f"\n{i}. <@{uid}> — {current} days (best: {best})"
+    await ctx.send(text)
+
+
+@bot.command()
+async def remindme(ctx):
+    """Opt in to receive a daily DM reminder to submit the challenge."""
+    user_id = str(ctx.author.id)
+    c.execute("SELECT 1 FROM reminders WHERE user_id = ?", (user_id,))
+    if c.fetchone():
+        c.execute("DELETE FROM reminders WHERE user_id = ?", (user_id,))
+        conn.commit()
+        await ctx.send("🔕 You have been unsubscribed from daily reminders.")
+    else:
+        c.execute("INSERT INTO reminders(user_id) VALUES(?)", (user_id,))
+        conn.commit()
+        await ctx.send("🔔 You are now subscribed to daily reminders.")
+
+
+@bot.event
+async def on_reaction_add(reaction, user):
+    """Quick vote via 👍 or ⭐ reactions on submissions."""
+    if user.bot:
+        return
+    msg = reaction.message
+    if msg.channel.id != SUBMISSIONS_CHANNEL_ID:
+        return
+    emoji = str(reaction.emoji)
+    if emoji not in ("👍", "⭐"):
+        return
+    # Enforce voting window
+    c.execute("SELECT timestamp FROM messages WHERE message_id = ?", (msg.id,))
+    row = c.fetchone()
+    if not row:
+        return
+    msg_ts = datetime.fromisoformat(row[0])
+    if (datetime.now(timezone.utc) - msg_ts).total_seconds() > VOTE_WINDOW_HOURS * 3600:
+        return
+    # Record one-point vote (unique per user+message)
+    try:
+        c.execute(
+            "INSERT INTO message_votes(message_id, voter_id, score, ts) VALUES(?,?,?,?)",
+            (
+                msg.id,
+                str(user.id),
+                1,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        pass
+
+
+@bot.event
+async def on_reaction_remove(reaction, user):
+    """Remove quick-vote if a 👍 or ⭐ reaction is removed."""
+    if user.bot:
+        return
+    msg = reaction.message
+    if msg.channel.id != SUBMISSIONS_CHANNEL_ID:
+        return
+    emoji = str(reaction.emoji)
+    if emoji not in ("👍", "⭐"):
+        return
+    try:
+        c.execute(
+            "DELETE FROM message_votes WHERE message_id = ? AND voter_id = ? AND score = 1",
+            (msg.id, str(user.id)),
+        )
+        conn.commit()
+    except Exception:
+        pass
 
 @bot.command(name='commands')
 async def list_commands(ctx):
@@ -552,6 +782,34 @@ async def submit(ctx, link: str = None):
         f"✅ Submission posted in {voting_chan.mention}. Voting is now open."
     )
 
+    # --- Streak update: one submission per day increments streak ---
+    user_id = str(ctx.author.id)
+    today = datetime.now(timezone.utc).date().isoformat()
+    c.execute(
+        "SELECT current, best, last_date FROM streaks WHERE user_id = ?", (user_id,)
+    )
+    row = c.fetchone()
+    if row:
+        current, best, last_date = row
+        if last_date != today:
+            last_dt = datetime.fromisoformat(last_date).date() if last_date else None
+            if last_dt and (datetime.now(timezone.utc).date() - last_dt).days == 1:
+                current += 1
+            else:
+                current = 1
+            best = max(best, current)
+            c.execute(
+                "UPDATE streaks SET current = ?, best = ?, last_date = ? WHERE user_id = ?",
+                (current, best, today, user_id),
+            )
+    else:
+        current, best = 1, 1
+        c.execute(
+            "INSERT INTO streaks(user_id, current, best, last_date) VALUES(?,?,?,?)",
+            (user_id, current, best, today),
+        )
+    conn.commit()
+
 @bot.command()
 async def rank(ctx):
     user_id = str(ctx.author.id)
@@ -579,73 +837,34 @@ async def leaderboard(ctx):
 
 @bot.command(name='vote')
 async def vote(ctx, score: int = None):
-    """Cast a 1–10 vote for a file or link submission by replying or inside its thread."""
-    if score is None:
-        return await ctx.send("❌ Please provide a vote score, e.g. `!vote 7`.")
-    # Identify submission by reply or thread context (audio OR link)
-    sub_id = None
+    """Cast a graded (1–10) vote by replying to a submission message."""
+    if score is None or not 1 <= score <= 10:
+        return await ctx.send("❌ Usage: reply to a submission and do `!vote <1-10>`." )
     ref = ctx.message.reference
-    # Allow voting only on the posted submission in voting-hall (message_id)
-    if ref and ref.message_id:
-        for tbl in ('audio_submissions', 'link_submissions'):
-            c.execute(
-                f"SELECT id FROM {tbl} WHERE message_id = ?",
-                (ref.message_id,)
-            )
-            row = c.fetchone()
-            if row:
-                sub_id = row[0]
-                break
-    # Allow voting inside a discussion thread without replying
-    if not sub_id and isinstance(ctx.channel, discord.Thread):
-        for tbl in ('audio_submissions', 'link_submissions'):
-            c.execute(
-                f"SELECT id FROM {tbl} WHERE thread_id = ?",
-                (ctx.channel.id,),
-            )
-            row = c.fetchone()
-            if row:
-                sub_id = row[0]
-                break
-    # Fallback: allow voting in a channel context by matching the previous submission message
-    if not sub_id and ctx.channel.id == VOTING_HALL_CHANNEL_ID:
-        # get the most recent message before this one
-        prev_msgs = [msg async for msg in ctx.channel.history(limit=1, before=ctx.message)]
-        if prev_msgs:
-            prev_msg = prev_msgs[0]
-            for tbl in ('audio_submissions', 'link_submissions'):
-                c.execute(
-                    f"SELECT id FROM {tbl} WHERE message_id = ?",
-                    (prev_msg.id,),
-                )
-                row = c.fetchone()
-                if row:
-                    sub_id = row[0]
-                    break
-    if not sub_id:
-        await ctx.send(
-            "❌ You can only vote by replying to the submission message in the #voting-hall."
-        )
-        return
-    if not 1 <= score <= 10:
-        return await ctx.send("❌ Please vote with a score between 1 and 10.")
-    uid = str(ctx.author.id)
+    if not ref or not ref.message_id:
+        return await ctx.send("❌ Please reply to a submission message to cast your vote.")
+    msg_id = ref.message_id
+    # Check that this is a tracked submission
+    c.execute("SELECT timestamp FROM messages WHERE message_id = ?", (msg_id,))
+    row = c.fetchone()
+    if not row:
+        return await ctx.send("❌ That message is not recognized as a submission.")
+    # Enforce voting window
+    msg_ts = datetime.fromisoformat(row[0])
+    if (datetime.now(timezone.utc) - msg_ts).total_seconds() > VOTE_WINDOW_HOURS * 3600:
+        return await ctx.send("❌ Voting period has closed for that submission.")
+    # Record vote (unique per user+message)
+    voter_id = str(ctx.author.id)
     now_iso = datetime.now(timezone.utc).isoformat()
     try:
         c.execute(
-            "INSERT INTO votes (user_id, submission_id, score, timestamp) VALUES (?, ?, ?, ?)",
-            (uid, sub_id, score, now_iso),
-        )
-        conn.commit()
-        # Award 1 point for voting
-        c.execute(
-            "INSERT OR REPLACE INTO rankings (user_id, points) VALUES (?, COALESCE((SELECT points FROM rankings WHERE user_id = ?), 0) + ?)",
-            (uid, uid, 1),
+            "INSERT INTO message_votes(message_id, voter_id, score, ts) VALUES(?,?,?,?)",
+            (msg_id, voter_id, score, now_iso),
         )
         conn.commit()
         await ctx.send(f"✅ Your vote of {score} has been recorded.")
     except sqlite3.IntegrityError:
-        await ctx.send("❌ You have already voted for this submission.")
+        await ctx.send("❌ You have already voted on this submission.")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -1031,8 +1250,7 @@ async def on_message(message):
             (sent.id, sub_id)
         )
         conn.commit()
-        await chan.send("✅ Submission accepted! Voting is now open.")
-        return
+    await chan.send("✅ Submission accepted! Voting is now open.")
 
     # Link submission (record tags + original message)
     raw = message.content.strip()

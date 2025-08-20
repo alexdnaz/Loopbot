@@ -24,4 +24,4 @@ COPY . .
 
 
 # Default command
-CMD ["python", "bot.py"]
+CMD ["python", "LoopBot/bot.py"]

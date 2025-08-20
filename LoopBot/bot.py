@@ -135,15 +135,15 @@ MEMES_CHANNEL_ID = 1393811645922545745       # memes-and-vibes
 ## SQLite DB setup
 ## SQLite DB setup
 ## Persistent storage detection: prefer env var, else auto‑detect mounted /data or LoopBot/data
-persistent_dir = (
-    os.getenv('RAILWAY_PERSISTENT_DIR')
-    or os.getenv('DATA_DIR')
-    or (
-        os.path.join(os.getcwd(), 'LoopBot', 'data')
-        if os.path.isdir(os.path.join(os.getcwd(), 'LoopBot', 'data'))
-        else None
-    )
+# Persistent storage detection: env var or mounted /data, else fallback to LoopBot/data
+_env_data = os.getenv('RAILWAY_PERSISTENT_DIR') or os.getenv('DATA_DIR')
+_vol_data = '/data' if os.path.isdir('/data') else None
+_local_data = (
+    os.path.join(os.getcwd(), 'LoopBot', 'data')
+    if os.path.isdir(os.path.join(os.getcwd(), 'LoopBot', 'data'))
+    else None
 )
+persistent_dir = _env_data or _vol_data or _local_data
 # Debug: verify which directory is used for persistence
 print(f"🔍 Persistent dir is: {persistent_dir}")
 if persistent_dir and os.path.isdir(persistent_dir):

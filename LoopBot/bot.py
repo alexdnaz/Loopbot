@@ -134,11 +134,15 @@ MEMES_CHANNEL_ID = 1393811645922545745       # memes-and-vibes
 
 ## SQLite DB setup
 ## SQLite DB setup
-## Persistent storage detection: prefer env var, else auto‑detect mounted /data
+## Persistent storage detection: prefer env var, else auto‑detect mounted /data or LoopBot/data
 persistent_dir = (
     os.getenv('RAILWAY_PERSISTENT_DIR')
     or os.getenv('DATA_DIR')
-    or (os.path.join(os.getcwd(), 'data') if os.path.isdir(os.path.join(os.getcwd(), 'data')) else None)
+    or (
+        os.path.join(os.getcwd(), 'LoopBot', 'data')
+        if os.path.isdir(os.path.join(os.getcwd(), 'LoopBot', 'data'))
+        else None
+    )
 )
 # Debug: verify which directory is used for persistence
 print(f"🔍 Persistent dir is: {persistent_dir}")

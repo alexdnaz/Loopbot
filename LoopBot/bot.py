@@ -650,33 +650,38 @@ async def remindme(ctx):
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    """Quick vote via 👍 or ⭐ reactions on submissions."""
+    """Quick vote via 👍 or ⭐ reactions on submissions or on voting-hall messages."""
     if user.bot:
         return
     msg = reaction.message
-    if msg.channel.id != SUBMISSIONS_CHANNEL_ID:
+    if msg.channel.id not in (SUBMISSIONS_CHANNEL_ID, VOTING_HALL_CHANNEL_ID):
         return
-    emoji = str(reaction.emoji)
-    if emoji not in ("👍", "⭐"):
+    if str(reaction.emoji) not in ("👍", "⭐"):
         return
-    # Enforce voting window
+    # Determine original submission timestamp from messages or submissions tables
     c.execute("SELECT timestamp FROM messages WHERE message_id = ?", (msg.id,))
     row = c.fetchone()
+    if not row:
+        c.execute(
+            "SELECT timestamp FROM audio_submissions WHERE message_id = ?",
+            (msg.id,),
+        )
+        row = c.fetchone()
+    if not row:
+        c.execute(
+            "SELECT timestamp FROM link_submissions WHERE message_id = ?",
+            (msg.id,),
+        )
+        row = c.fetchone()
     if not row:
         return
     msg_ts = datetime.fromisoformat(row[0])
     if (datetime.now(timezone.utc) - msg_ts).total_seconds() > VOTE_WINDOW_HOURS * 3600:
         return
-    # Record one-point vote (unique per user+message)
     try:
         c.execute(
             "INSERT INTO message_votes(message_id, voter_id, score, ts) VALUES(?,?,?,?)",
-            (
-                msg.id,
-                str(user.id),
-                1,
-                datetime.now(timezone.utc).isoformat(),
-            ),
+            (msg.id, str(user.id), 1, datetime.now(timezone.utc).isoformat()),
         )
         conn.commit()
     except sqlite3.IntegrityError:
@@ -689,10 +694,9 @@ async def on_reaction_remove(reaction, user):
     if user.bot:
         return
     msg = reaction.message
-    if msg.channel.id != SUBMISSIONS_CHANNEL_ID:
+    if msg.channel.id not in (SUBMISSIONS_CHANNEL_ID, VOTING_HALL_CHANNEL_ID):
         return
-    emoji = str(reaction.emoji)
-    if emoji not in ("👍", "⭐"):
+    if str(reaction.emoji) not in ("👍", "⭐"):
         return
     try:
         c.execute(
@@ -848,9 +852,19 @@ async def vote(ctx, score: int = None):
     if not ref or not ref.message_id:
         return await ctx.send("❌ Please reply to a submission message to cast your vote.")
     msg_id = ref.message_id
-    # Check that this is a tracked submission
+    # Lookup submission timestamp: allow submissions or forwarded messages
     c.execute("SELECT timestamp FROM messages WHERE message_id = ?", (msg_id,))
     row = c.fetchone()
+    if not row:
+        c.execute(
+            "SELECT timestamp FROM audio_submissions WHERE message_id = ?", (msg_id,)
+        )
+        row = c.fetchone()
+    if not row:
+        c.execute(
+            "SELECT timestamp FROM link_submissions WHERE message_id = ?", (msg_id,)
+        )
+        row = c.fetchone()
     if not row:
         return await ctx.send("❌ That message is not recognized as a submission.")
     # Enforce voting window

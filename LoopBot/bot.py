@@ -486,24 +486,35 @@ async def crypto_price_tracker():
     if not data:
         print("⚠️ Failed to fetch crypto market data.")
         return
-    # Build a single embed with selected tickers
+    # Send one embed per selected ticker for a clearer display
     now = datetime.now(timezone.utc)
-    embed = discord.Embed(
-        title="💰 Live Crypto Prices (USD)",
-        timestamp=now,
-        color=discord.Color.dark_blue(),
-    )
     for coin in data:
         if not isinstance(coin, dict):
             continue
         symbol = coin.get('symbol', '').upper()
+        name = coin.get('name', '').title()
         price = coin.get('current_price')
         change24 = coin.get('price_change_percentage_24h')
         arrow = '📈' if change24 and change24 >= 0 else '📉'
-        value = f"${price:,.2f} ({arrow} {change24:+.2f}%)" if price is not None else "N/A"
-        embed.add_field(name=symbol, value=value, inline=True)
-    embed.set_footer(text="Data provided by CoinGecko")
-    await channel.send(embed=embed)
+        description = (
+            f"**Price:** ${price:,.2f}\n"
+            f"**24h Change:** {arrow} {change24:+.2f}%"
+            if price is not None and change24 is not None
+            else "Price data unavailable"
+        )
+        embed = discord.Embed(
+            title=f"{symbol} — {name}",
+            description=description,
+            color=discord.Color.dark_blue(),
+            timestamp=now,
+        )
+        embed.set_footer(text="Data by CoinGecko")
+        # Optional thumbnail
+        if coin.get('image'):
+            embed.set_thumbnail(url=coin['image'])
+        await channel.send(embed=embed)
+        # slight pause to avoid rate limits
+        await asyncio.sleep(1)
 
 
 # XP & leveling: accrue XP on messages (1 XP per 60s), track levels, assign roles

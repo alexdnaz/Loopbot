@@ -573,6 +573,9 @@ async def livecrypto(ctx):
                 async with session.get(url) as resp:
                     newdata = await resp.json()
                 for coin in newdata:
+                    # skip malformed entries
+                    if not isinstance(coin, dict):
+                        continue
                     msg = msgs.get(coin.get('id'))
                     if msg:
                         new_embed = _make_ticker_embed(coin)

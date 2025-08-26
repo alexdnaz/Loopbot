@@ -70,6 +70,8 @@ VOTE_SUMMARY_MINUTE = int(os.getenv('VOTE_SUMMARY_MINUTE', '0'))
 CRYPTO_INTERVAL_HOURS = int(os.getenv('CRYPTO_INTERVAL_HOURS', '1'))
 # Voting lock window (hours) after submission; votes outside this window are ignored
 VOTE_WINDOW_HOURS = int(os.getenv('VOTE_WINDOW_HOURS', '24'))
+# Live crypto update interval in seconds for scrolling ticker (via !livecrypto)
+CRYPTO_LIVE_INTERVAL = int(os.getenv('CRYPTO_LIVE_INTERVAL', '5'))
 # Optional role IDs to assign upon reaching certain levels
 XP_ROLE_L3 = int(os.getenv('XP_ROLE_L3', '0')) or None
 XP_ROLE_L5 = int(os.getenv('XP_ROLE_L5', '0')) or None
@@ -515,6 +517,68 @@ async def crypto_price_tracker():
         await channel.send(embed=embed)
         # slight pause to avoid rate limits
         await asyncio.sleep(1)
+
+def _make_ticker_embed(coin: dict) -> discord.Embed:
+    """Helper to build a single crypto embed for live updates."""
+    now = datetime.now(timezone.utc)
+    symbol = coin.get('symbol', '').upper()
+    name = coin.get('name', '').title()
+    price = coin.get('current_price')
+    change24 = coin.get('price_change_percentage_24h')
+    arrow = '📈' if change24 and change24 >= 0 else '📉'
+    description = (
+        f"**Price:** ${price:,.2f}\n"
+        f"**24h Change:** {arrow} {change24:+.2f}%"
+        if price is not None and change24 is not None
+        else "Price data unavailable"
+    )
+    embed = discord.Embed(
+        title=f"{symbol} — {name}",
+        description=description,
+        color=discord.Color.dark_blue(),
+        timestamp=now,
+    )
+    if coin.get('image'):
+        embed.set_thumbnail(url=coin['image'])
+    embed.set_footer(text="Data by CoinGecko")
+    return embed
+
+@bot.command(name='livecrypto')
+async def livecrypto(ctx):
+    """Post live-updating embeds for configured crypto tickers (updates every CRYPTO_LIVE_INTERVAL seconds)."""
+    tickers = os.getenv('CRYPTO_TICKERS', 'bitcoin,ethereum,ripple,solana')
+    ids = ','.join(t.strip() for t in tickers.split(',') if t.strip())
+    url = (
+        "https://api.coingecko.com/api/v3/coins/markets"
+        f"?vs_currency=usd&ids={ids}&order=market_cap_desc&sparkline=false"
+    )
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            data = await resp.json()
+    if not data:
+        return await ctx.send("⚠️ Failed to fetch crypto data.")
+    # Send initial embeds and keep references
+    msgs = {}
+    for coin in data:
+        embed = _make_ticker_embed(coin)
+        msg = await ctx.send(embed=embed)
+        msgs[coin.get('id')] = msg
+        await asyncio.sleep(1)
+    await ctx.send(f"🔁 Live crypto tracker started (updates every {CRYPTO_LIVE_INTERVAL}s)")
+
+    async def updater():
+        async with aiohttp.ClientSession() as session:
+            while True:
+                await asyncio.sleep(CRYPTO_LIVE_INTERVAL)
+                async with session.get(url) as resp:
+                    newdata = await resp.json()
+                for coin in newdata:
+                    msg = msgs.get(coin.get('id'))
+                    if msg:
+                        new_embed = _make_ticker_embed(coin)
+                        await msg.edit(embed=new_embed)
+
+    bot.loop.create_task(updater())
 
 
 # XP & leveling: accrue XP on messages (1 XP per 60s), track levels, assign roles

@@ -488,35 +488,35 @@ async def crypto_price_tracker():
     if not data:
         print("⚠️ Failed to fetch crypto market data.")
         return
-    # Send one embed per selected ticker for a clearer display
+    # Build a markdown table for all selected tickers in one embed
     now = datetime.now(timezone.utc)
+    header = "| Coin | Price | 1h | 24h | 7d |\n|:---|:---:|:---:|:---:|:---:|"
+    rows = []
     for coin in data:
         if not isinstance(coin, dict):
             continue
-        symbol = coin.get('symbol', '').upper()
-        name = coin.get('name', '').title()
-        price = coin.get('current_price')
-        change24 = coin.get('price_change_percentage_24h')
-        arrow = '📈' if change24 and change24 >= 0 else '📉'
-        description = (
-            f"**Price:** ${price:,.2f}\n"
-            f"**24h Change:** {arrow} {change24:+.2f}%"
-            if price is not None and change24 is not None
-            else "Price data unavailable"
-        )
-        embed = discord.Embed(
-            title=f"{symbol} — {name}",
-            description=description,
-            color=discord.Color.dark_blue(),
-            timestamp=now,
-        )
-        embed.set_footer(text="Data by CoinGecko")
-        # Optional thumbnail
-        if coin.get('image'):
-            embed.set_thumbnail(url=coin['image'])
-        await channel.send(embed=embed)
-        # slight pause to avoid rate limits
-        await asyncio.sleep(1)
+        sym = coin.get('symbol', '').upper()
+        pr = coin.get('current_price')
+        p1 = coin.get('price_change_percentage_1h_in_currency')
+        p24 = coin.get('price_change_percentage_24h_in_currency')
+        p7 = coin.get('price_change_percentage_7d_in_currency')
+        def fmt(val):
+            if val is None:
+                return "—"
+            sign = '+' if val >= 0 else ''
+            arrow = '📈' if val >= 0 else '📉'
+            return f"{arrow} {sign}{val:.2f}%"
+        price_str = f"${pr:,.2f}" if pr is not None else '—'
+        rows.append(f"| **{sym}** | {price_str} | {fmt(p1)} | {fmt(p24)} | {fmt(p7)} |")
+    table_md = '\n'.join([header] + rows)
+    embed = discord.Embed(
+        title="💰 Live Crypto Price Tracker",
+        description=table_md,
+        color=discord.Color.dark_blue(),
+        timestamp=now,
+    )
+    embed.set_footer(text="Data provided by CoinGecko")
+    await channel.send(embed=embed)
 
 def _make_ticker_embed(coin: dict) -> discord.Embed:
     """Helper to build a single crypto embed for live updates."""

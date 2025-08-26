@@ -473,13 +473,12 @@ async def crypto_price_tracker():
     if not channel:
         print("⚠️ Crypto channel not found. Check CRYPTO_CHANNEL_ID.")
         return
-    # Fetch top cryptocurrencies by market cap (includes images and 24h change)
-    # Adjust 'per_page' to include more coins in the carousel
-    per_page = int(os.getenv('CRYPTO_TOP_N', '10'))
+    # Select specific coins by ID for live tickers
+    tickers = os.getenv('CRYPTO_TICKERS', 'bitcoin,ethereum,ripple,solana')
+    ids = ','.join([t.strip() for t in tickers.split(',') if t.strip()])
     markets_url = (
         "https://api.coingecko.com/api/v3/coins/markets"
-        f"?vs_currency=usd"
-        f"&order=market_cap_desc&per_page={per_page}&page=1&sparkline=false"
+        f"?vs_currency=usd&ids={ids}&order=market_cap_desc&sparkline=false"
     )
     async with aiohttp.ClientSession() as session:
         async with session.get(markets_url) as resp:
@@ -487,44 +486,24 @@ async def crypto_price_tracker():
     if not data:
         print("⚠️ Failed to fetch crypto market data.")
         return
-    # Send one embed per coin with its logo and 24h change (scrollable carousel)
-    embeds = []
+    # Build a single embed with selected tickers
     now = datetime.now(timezone.utc)
+    embed = discord.Embed(
+        title="💰 Live Crypto Prices (USD)",
+        timestamp=now,
+        color=discord.Color.dark_blue(),
+    )
     for coin in data:
-        # Skip any invalid entries that are not expected dict objects
         if not isinstance(coin, dict):
-            print(f"⚠️ Skipping invalid coin entry: {coin!r}")
             continue
-        name = coin.get('name', '').title()
         symbol = coin.get('symbol', '').upper()
         price = coin.get('current_price')
         change24 = coin.get('price_change_percentage_24h')
-        image = coin.get('image')
-        embed = discord.Embed(
-            title=f"{symbol} - {name}",
-            color=discord.Color.dark_gold(),
-            timestamp=now,
-        )
-        if image:
-            embed.set_thumbnail(url=image)
-        embed.add_field(
-            name="Price (USD)",
-            value=f"**${price:,}**" if price is not None else "N/A",
-            inline=False,
-        )
-        if change24 is not None:
-            arrow = "📈" if change24 >= 0 else "📉"
-            embed.add_field(
-                name="24h Change",
-                value=f"{arrow} {change24:+.2f}%",
-                inline=False,
-            )
-        embed.set_footer(text="Data provided by CoinGecko")
-        embeds.append(embed)
-
-    # Discord limits to max 10 embeds per message; send in chunks if needed
-    for chunk in (embeds[i:i+10] for i in range(0, len(embeds), 10)):
-        await channel.send(embeds=chunk)
+        arrow = '📈' if change24 and change24 >= 0 else '📉'
+        value = f"${price:,.2f} ({arrow} {change24:+.2f}%)" if price is not None else "N/A"
+        embed.add_field(name=symbol, value=value, inline=True)
+    embed.set_footer(text="Data provided by CoinGecko")
+    await channel.send(embed=embed)
 
 
 # XP & leveling: accrue XP on messages (1 XP per 60s), track levels, assign roles

@@ -71,7 +71,7 @@ VOTE_SUMMARY_MINUTE = int(os.getenv('VOTE_SUMMARY_MINUTE', '0'))
 CRYPTO_INTERVAL_HOURS = int(os.getenv('CRYPTO_INTERVAL_HOURS', '1'))
 # Voting lock window (hours) after submission; votes outside this window are ignored
 VOTE_WINDOW_HOURS = int(os.getenv('VOTE_WINDOW_HOURS', '24'))
-# Live crypto embed update interval (seconds)
+# Live crypto embed update interval (seconds); override via CRYPTO_LIVE_INTERVAL env var
 CRYPTO_LIVE_INTERVAL = int(os.getenv('CRYPTO_LIVE_INTERVAL', '20'))
 # Live crypto update interval in seconds for scrolling ticker (via !livecrypto)
 CRYPTO_LIVE_INTERVAL = int(os.getenv('CRYPTO_LIVE_INTERVAL', '5'))
@@ -609,28 +609,41 @@ async def livecrypto(ctx):
     for coin in data:
         if not isinstance(coin, dict):
             continue
-        buf = build_card(coin)
-        filename = f"{coin.get('id')}.png"
-        msg = await ctx.send(file=discord.File(buf, filename=filename))
-        msgs[coin.get('id')] = filename, msg
-        await asyncio.sleep(1)
+        cid = coin.get('id', '<unknown>')
+        try:
+            buf = build_card(coin)
+            filename = f"{cid}.png"
+            msg = await ctx.send(file=discord.File(buf, filename=filename))
+            msgs[cid] = filename, msg
+            await asyncio.sleep(1)
+        except Exception as e:
+            print(f"⚠️ livecrypto: failed to build/send card for {cid}: {e}")
     await ctx.send(f"🔁 Live crypto tracker started (updates every {CRYPTO_LIVE_INTERVAL}s)")
 
     async def updater():
         async with aiohttp.ClientSession() as session:
             while True:
                 await asyncio.sleep(CRYPTO_LIVE_INTERVAL)
-                async with session.get(url) as resp:
-                    newdata = await resp.json()
+                try:
+                    async with session.get(url) as resp:
+                        newdata = await resp.json()
+                except Exception as e:
+                    print(f"⚠️ livecrypto updater fetch error: {e}")
+                    continue
                 for coin in newdata:
                     if not isinstance(coin, dict):
                         continue
-                    entry = msgs.get(coin.get('id'))
-                    if entry:
-                        filename, msg = entry
+                    cid = coin.get('id')
+                    entry = msgs.get(cid)
+                    if not entry:
+                        continue
+                    filename, msg = entry
+                    try:
                         buf = build_card(coin)
                         embed = discord.Embed().set_image(url=f"attachment://{filename}")
                         await msg.edit(content=None, embed=embed, attachments=[discord.File(buf, filename=filename)])
+                    except Exception as e:
+                        print(f"⚠️ livecrypto updater card error for {cid}: {e}")
 
     bot.loop.create_task(updater())
 

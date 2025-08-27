@@ -10,6 +10,7 @@ RUN apt-get update \
       curl \
       jq \
       openssl \
+      fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
 # Set work directory

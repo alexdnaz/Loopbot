@@ -351,7 +351,7 @@ async def on_ready():
             post_daily_challenge.start()
             post_daily_leaderboard.start()
             post_vote_summary.start()
-            crypto_price_tracker.start()
+            # crypto_price_tracker scheduled loop removed in favor of livecrypto command
         except RuntimeError:
             pass
     else:

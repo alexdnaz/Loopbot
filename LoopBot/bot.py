@@ -1118,6 +1118,21 @@ async def memes(ctx):
         if len(memes) >= 5:
             break
     if not memes:
+        # Fallback to Reddit r/memes top posts if none from Nitter
+        reddit_url = f"https://www.reddit.com/r/memes/top/.json?limit={SCRAPE_LIMIT}&t=day"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(reddit_url, headers={'User-Agent': 'Mozilla/5.0'}) as rres:
+                    j = await rres.json()
+                    for post in j.get('data', {}).get('children', []):
+                        url = post['data'].get('url_overridden_by_dest') or post['data'].get('url')
+                        if url and url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                            memes.append(url)
+                            if len(memes) >= SCRAPE_LIMIT:
+                                break
+        except Exception:
+            pass
+    if not memes:
         return await ctx.send("🔍 No memes found at the moment. Try again later.")
     channel = bot.get_channel(MEMES_CHANNEL_ID)
     for src in memes:

@@ -579,25 +579,25 @@ async def livecrypto(ctx):
         # Colors
         bg = (20, 20, 30)
         fg = (20, 200, 60) if change24 >= 0 else (240, 80, 80)
-        # Image canvas
-        img = Image.new('RGB', (400, 140), bg)
+        # Image canvas (wider/taller to accommodate larger fonts)
+        img = Image.new('RGB', (500, 180), bg)
         draw = ImageDraw.Draw(img)
         # Fonts: try a common system font, fallback to default
         try:
-            font_symbol = ImageFont.truetype('DejaVuSans.ttf', 32)
-            font_price = ImageFont.truetype('DejaVuSans.ttf', 48)
-            font_small  = ImageFont.truetype('DejaVuSans.ttf', 24)
+            font_symbol = ImageFont.truetype('DejaVuSans.ttf', 40)
+            font_price  = ImageFont.truetype('DejaVuSans.ttf', 64)
+            font_small  = ImageFont.truetype('DejaVuSans.ttf', 32)
         except OSError:
             font_symbol = font_price = font_small = ImageFont.load_default()
 
-        # Draw symbol
+        # Draw symbol (top-left)
         draw.text((20, 10), symbol, fill=(200,200,200), font=font_symbol)
-        # Draw price
+        # Draw price larger below symbol
         price_text = f"${price:,.2f}"
-        draw.text((20, 50), price_text, fill=fg, font=font_price)
-        # Draw 24h change
+        draw.text((20, 60), price_text, fill=fg, font=font_price)
+        # Draw 24h change below price
         change_text = f"{change24:+.2f}%"
-        draw.text((20, 105), change_text, fill=fg, font=font_small)
+        draw.text((20, 140), change_text, fill=fg, font=font_small)
 
         buf = BytesIO()
         img.save(buf, format='PNG')

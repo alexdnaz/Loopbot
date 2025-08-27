@@ -30,8 +30,8 @@ NITTER_INSTANCES = [
     "https://nitter.1d4.us",
 ]
 
-# Number of memes to fetch per scrape
-SCRAPE_LIMIT = 25
+# Number of memes to fetch per scrape (from Nitter or Reddit)
+SCRAPE_LIMIT = int(os.getenv('SCRAPE_LIMIT', '5'))
 
 # Nitter instances (fallback) for lightweight Twitter scraping
 NITTER_INSTANCES = [

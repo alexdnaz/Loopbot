@@ -19,8 +19,9 @@ import random
 import re
 
 from bs4 import BeautifulSoup
-import base64, csv
-import math
+import base64, csv, math
+from io import BytesIO
+from PIL import Image, ImageDraw, ImageFont
 
 # Nitter instances (fallback) for lightweight Twitter scraping
 NITTER_INSTANCES = [
@@ -70,6 +71,8 @@ VOTE_SUMMARY_MINUTE = int(os.getenv('VOTE_SUMMARY_MINUTE', '0'))
 CRYPTO_INTERVAL_HOURS = int(os.getenv('CRYPTO_INTERVAL_HOURS', '1'))
 # Voting lock window (hours) after submission; votes outside this window are ignored
 VOTE_WINDOW_HOURS = int(os.getenv('VOTE_WINDOW_HOURS', '24'))
+# Live crypto embed update interval (seconds)
+CRYPTO_LIVE_INTERVAL = int(os.getenv('CRYPTO_LIVE_INTERVAL', '20'))
 # Live crypto update interval in seconds for scrolling ticker (via !livecrypto)
 CRYPTO_LIVE_INTERVAL = int(os.getenv('CRYPTO_LIVE_INTERVAL', '5'))
 # Optional role IDs to assign upon reaching certain levels
@@ -555,7 +558,7 @@ def _make_ticker_embed(coin: dict) -> discord.Embed:
 
 @bot.command(name='livecrypto')
 async def livecrypto(ctx):
-    """Post live-updating embeds for configured crypto tickers (updates every CRYPTO_LIVE_INTERVAL seconds)."""
+    """Post live-updating image cards for configured crypto tickers (updates every CRYPTO_LIVE_INTERVAL seconds)."""
     tickers = os.getenv('CRYPTO_TICKERS', 'bitcoin,ethereum,ripple,solana')
     ids = ','.join(t.strip() for t in tickers.split(',') if t.strip())
     url = (
@@ -567,12 +570,46 @@ async def livecrypto(ctx):
             data = await resp.json()
     if not data:
         return await ctx.send("⚠️ Failed to fetch crypto data.")
-    # Send initial embeds and keep references
+
+    # Helper to build PNG card for a coin
+    def build_card(coin: dict) -> BytesIO:
+        symbol = coin.get('symbol', '').upper()
+        price = coin.get('current_price') or 0
+        change24 = coin.get('price_change_percentage_24h') or 0
+        # Colors
+        bg = (20, 20, 30)
+        fg = (20, 200, 60) if change24 >= 0 else (240, 80, 80)
+        # Image canvas
+        img = Image.new('RGB', (400, 140), bg)
+        draw = ImageDraw.Draw(img)
+        # Fonts
+        font_symbol = ImageFont.truetype('arial.ttf', 32)
+        font_price = ImageFont.truetype('arial.ttf', 48)
+        font_small = ImageFont.truetype('arial.ttf', 24)
+
+        # Draw symbol
+        draw.text((20, 10), symbol, fill=(200,200,200), font=font_symbol)
+        # Draw price
+        price_text = f"${price:,.2f}"
+        draw.text((20, 50), price_text, fill=fg, font=font_price)
+        # Draw 24h change
+        change_text = f"{change24:+.2f}%"
+        draw.text((20, 105), change_text, fill=fg, font=font_small)
+
+        buf = BytesIO()
+        img.save(buf, format='PNG')
+        buf.seek(0)
+        return buf
+
+    # Send initial cards and store message refs
     msgs = {}
     for coin in data:
-        embed = _make_ticker_embed(coin)
-        msg = await ctx.send(embed=embed)
-        msgs[coin.get('id')] = msg
+        if not isinstance(coin, dict):
+            continue
+        buf = build_card(coin)
+        filename = f"{coin.get('id')}.png"
+        msg = await ctx.send(file=discord.File(buf, filename=filename))
+        msgs[coin.get('id')] = filename, msg
         await asyncio.sleep(1)
     await ctx.send(f"🔁 Live crypto tracker started (updates every {CRYPTO_LIVE_INTERVAL}s)")
 
@@ -583,13 +620,14 @@ async def livecrypto(ctx):
                 async with session.get(url) as resp:
                     newdata = await resp.json()
                 for coin in newdata:
-                    # skip malformed entries
                     if not isinstance(coin, dict):
                         continue
-                    msg = msgs.get(coin.get('id'))
-                    if msg:
-                        new_embed = _make_ticker_embed(coin)
-                        await msg.edit(embed=new_embed)
+                    entry = msgs.get(coin.get('id'))
+                    if entry:
+                        filename, msg = entry
+                        buf = build_card(coin)
+                        embed = discord.Embed().set_image(url=f"attachment://{filename}")
+                        await msg.edit(content=None, embed=embed, attachments=[discord.File(buf, filename=filename)])
 
     bot.loop.create_task(updater())
 

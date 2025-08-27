@@ -8,3 +8,4 @@ psutil==5.9.8                  # System and process utilities (for monitoring bo
 pyyaml==6.0.1                  # YAML support for config files
 openai>=1.99.6,<2              # OpenAI API (>=1.99.6 to satisfy openai-agents)
 beautifulsoup4>=4.11.1         # HTML parsing for meme scraping
+Pillow>=9.0.0                   # Image generation for live crypto cards

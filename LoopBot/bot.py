@@ -449,16 +449,31 @@ async def post_vote_summary():
             color=discord.Color.green(),
         )
         for i, (msg_id, total) in enumerate(rows, start=1):
+            label = f"Submission #{msg_id}"
+            img_url = None
             try:
                 msg = await channel.fetch_message(msg_id)
-                label = f"[View submission]({msg.jump_url})"
+                # If the submission has an attachment, show it inline
+                if msg.attachments:
+                    img_url = msg.attachments[0].url
+                else:
+                    # fallback to jump link
+                    label = f"[View submission]({msg.jump_url})"
             except Exception:
-                label = f"Submission #{msg_id}"
-            embed.add_field(
-                name=f"{i}. {label}",
-                value=f"Total: {total} votes",
-                inline=False,
-            )
+                pass
+            if img_url:
+                embed.add_field(
+                    name=f"{i}. {label}",
+                    value=f"Total: {total} votes",
+                    inline=False,
+                )
+                embed.set_image(url=img_url)
+            else:
+                embed.add_field(
+                    name=f"{i}. {label}",
+                    value=f"Total: {total} votes",
+                    inline=False,
+                )
         await channel.send(embed=embed)
     else:
         print("⚠️ Voting hall channel not found. Check VOTING_HALL_CHANNEL_ID.")

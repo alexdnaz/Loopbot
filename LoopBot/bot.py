@@ -444,37 +444,27 @@ async def post_vote_summary():
         if not rows:
             await channel.send("🏅 No votes have been cast in the recent window.")
             return
-        embed = discord.Embed(
-            title="📈 Trending: Top 5 in last {VOTE_WINDOW_HOURS}h",
-            color=discord.Color.green(),
-        )
+        # Send one embed per top submission so image and vote count are clear
         for i, (msg_id, total) in enumerate(rows, start=1):
-            label = f"Submission #{msg_id}"
-            img_url = None
             try:
                 msg = await channel.fetch_message(msg_id)
-                # If the submission has an attachment, show it inline
-                if msg.attachments:
-                    img_url = msg.attachments[0].url
-                else:
-                    # fallback to jump link
-                    label = f"[View submission]({msg.jump_url})"
             except Exception:
-                pass
-            if img_url:
-                embed.add_field(
-                    name=f"{i}. {label}",
-                    value=f"Total: {total} votes",
-                    inline=False,
-                )
-                embed.set_image(url=img_url)
-            else:
-                embed.add_field(
-                    name=f"{i}. {label}",
-                    value=f"Total: {total} votes",
-                    inline=False,
-                )
-        await channel.send(embed=embed)
+                msg = None
+            title = f"#{i}"
+            color = discord.Color.green() if total > 0 else discord.Color.red()
+
+            embed = discord.Embed(
+                title=f"🏅 Trending {title}",
+                color=color,
+            )
+            # Include vote count
+            embed.add_field(name="Total Votes", value=str(total), inline=True)
+            # If there's an image attached, show it; otherwise link to submission
+            if msg and msg.attachments:
+                embed.set_image(url=msg.attachments[0].url)
+            elif msg:
+                embed.add_field(name="Link", value=f"[View Submission]({msg.jump_url})", inline=True)
+            await channel.send(embed=embed)
     else:
         print("⚠️ Voting hall channel not found. Check VOTING_HALL_CHANNEL_ID.")
 

@@ -582,10 +582,13 @@ async def livecrypto(ctx):
         # Image canvas
         img = Image.new('RGB', (400, 140), bg)
         draw = ImageDraw.Draw(img)
-        # Fonts
-        font_symbol = ImageFont.truetype('arial.ttf', 32)
-        font_price = ImageFont.truetype('arial.ttf', 48)
-        font_small = ImageFont.truetype('arial.ttf', 24)
+        # Fonts: try a common system font, fallback to default
+        try:
+            font_symbol = ImageFont.truetype('DejaVuSans.ttf', 32)
+            font_price = ImageFont.truetype('DejaVuSans.ttf', 48)
+            font_small  = ImageFont.truetype('DejaVuSans.ttf', 24)
+        except OSError:
+            font_symbol = font_price = font_small = ImageFont.load_default()
 
         # Draw symbol
         draw.text((20, 10), symbol, fill=(200,200,200), font=font_symbol)

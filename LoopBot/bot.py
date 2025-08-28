@@ -535,6 +535,50 @@ async def crypto_price_tracker():
         await channel.send(embed=embed)
         await asyncio.sleep(1)
 
+@tasks.loop(hours=CRYPTO_INTERVAL_HOURS)
+async def update_crypto_voice_channels():
+    """Fetch and update voice channel names for configured crypto tickers at each interval."""
+    if not CRYPTO_VOICE_CATEGORY_ID:
+        return
+    category = bot.get_channel(CRYPTO_VOICE_CATEGORY_ID)
+    if not isinstance(category, discord.CategoryChannel):
+        print("⚠️ Crypto voice category not found. Check CRYPTO_VOICE_CATEGORY_ID.")
+        return
+    tickers = os.getenv('CRYPTO_TICKERS', 'bitcoin,ethereum,solana')
+    ids = ','.join(t.strip() for t in tickers.split(',') if t.strip())
+    url = (
+        "https://api.coingecko.com/api/v3/coins/markets"
+        f"?vs_currency=usd&ids={ids}&order=market_cap_desc&sparkline=false"
+    )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                data = await resp.json()
+    except Exception as e:
+        print(f"⚠️ Failed to fetch crypto market data for voice channels: {e}")
+        return
+    for coin in data:
+        if not isinstance(coin, dict):
+            continue
+        sym = coin.get('symbol', '').upper()
+        pr = coin.get('current_price')
+        if pr is None:
+            continue
+        price_str = f"${pr:,.2f}"
+        name = f"{sym} {price_str}"
+        existing = None
+        for ch in category.voice_channels:
+            if ch.name.upper().startswith(sym):
+                existing = ch
+                break
+        try:
+            if existing:
+                await existing.edit(name=name)
+            else:
+                await category.create_voice_channel(name)
+        except Exception as e:
+            print(f"⚠️ Failed to update voice channel for {sym}: {e}")
+
 def _make_ticker_embed(coin: dict) -> discord.Embed:
     """Helper to build a single crypto embed for live updates."""
     now = datetime.now(timezone.utc)

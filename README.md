@@ -98,6 +98,7 @@ LoopBot can now post Bitcoin, Ethereum, and Solana prices on a schedule.
 - To enable: set a volume or `DB_PATH` as above and redeploy.
 - Posts go to channel ID `1401992445251817472` on the hour, every hour by default.
 - To adjust interval (in hours), set `CRYPTO_INTERVAL_HOURS` in your env.
+- To customize tracked coins, set `CRYPTO_TICKERS` to a comma-separated list of CoinGecko coin IDs (default: `bitcoin,ethereum,solana`).
 
 ## Spotify OAuth & Redirect URI Requirements
 

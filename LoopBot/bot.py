@@ -71,10 +71,8 @@ VOTE_SUMMARY_MINUTE = int(os.getenv('VOTE_SUMMARY_MINUTE', '0'))
 CRYPTO_INTERVAL_HOURS = int(os.getenv('CRYPTO_INTERVAL_HOURS', '1'))
 # Voting lock window (hours) after submission; votes outside this window are ignored
 VOTE_WINDOW_HOURS = int(os.getenv('VOTE_WINDOW_HOURS', '24'))
-# Live crypto embed update interval (seconds); override via CRYPTO_LIVE_INTERVAL env var
+# Live crypto update interval in seconds for livecrypto scrolling ticker; override via CRYPTO_LIVE_INTERVAL env var
 CRYPTO_LIVE_INTERVAL = int(os.getenv('CRYPTO_LIVE_INTERVAL', '20'))
-# Live crypto update interval in seconds for scrolling ticker (via !livecrypto)
-CRYPTO_LIVE_INTERVAL = int(os.getenv('CRYPTO_LIVE_INTERVAL', '5'))
 # Optional role IDs to assign upon reaching certain levels
 XP_ROLE_L3 = int(os.getenv('XP_ROLE_L3', '0')) or None
 XP_ROLE_L5 = int(os.getenv('XP_ROLE_L5', '0')) or None
@@ -132,7 +130,8 @@ CHALLENGE_CHANNEL_ID = 1393808509463691294  # current-challenge
 SUBMISSIONS_CHANNEL_ID = 1393808617354035321 # submissions
 VOTING_HALL_CHANNEL_ID = 1393808682407428127 # voting-hall
 LEADERBOARD_CHANNEL_ID = 1393810922396585984 # leaderboard
-CRYPTO_CHANNEL_ID = 1401992445251817472      # crypto price tracker
+CRYPTO_CHANNEL_ID = 1401992445251817472      # crypto price tracker (embed updates)
+CRYPTO_VOICE_CATEGORY_ID = int(os.getenv('CRYPTO_VOICE_CATEGORY_ID', '0')) or None  # crypto voice category for live tickers
 WELCOME_CHANNEL_ID = 1393807671525773322     # welcome
 HOW_IT_WORKS_CHANNEL_ID = 1393807869299789954 # how-it-works
 MEMES_CHANNEL_ID = 1393811645922545745       # memes-and-vibes
@@ -354,7 +353,8 @@ async def on_ready():
             post_daily_challenge.start()
             post_daily_leaderboard.start()
             post_vote_summary.start()
-            # crypto_price_tracker scheduled loop removed in favor of livecrypto command
+            crypto_price_tracker.start()
+            update_crypto_voice_channels.start()
         except RuntimeError:
             pass
     else:
@@ -472,19 +472,18 @@ async def post_vote_summary():
 
 @tasks.loop(
     time=[
-        dtime(hour=h, minute=m, tzinfo=timezone.utc)
-        for h in range(24)
-        for m in (0, 15, 30, 45)
+        dtime(hour=h, minute=0, tzinfo=timezone.utc)
+        for h in range(0, 24, CRYPTO_INTERVAL_HOURS)
     ]
 )
 async def crypto_price_tracker():
-    """Fetch and post top cryptocurrencies by market cap at each quarter-hour UTC."""
+    """Fetch and post top cryptocurrencies by market cap at each configured interval on the hour (UTC)."""
     channel = bot.get_channel(CRYPTO_CHANNEL_ID)
     if not channel:
         print("⚠️ Crypto channel not found. Check CRYPTO_CHANNEL_ID.")
         return
     # Select specific coins by ID for live tickers
-    tickers = os.getenv('CRYPTO_TICKERS', 'bitcoin,ethereum,ripple,solana')
+    tickers = os.getenv('CRYPTO_TICKERS', 'bitcoin,ethereum,solana')
     ids = ','.join([t.strip() for t in tickers.split(',') if t.strip()])
     markets_url = (
         "https://api.coingecko.com/api/v3/coins/markets"
@@ -564,7 +563,7 @@ def _make_ticker_embed(coin: dict) -> discord.Embed:
 @bot.command(name='livecrypto')
 async def livecrypto(ctx):
     """Post live-updating image cards for configured crypto tickers (updates every CRYPTO_LIVE_INTERVAL seconds)."""
-    tickers = os.getenv('CRYPTO_TICKERS', 'bitcoin,ethereum,ripple,solana')
+    tickers = os.getenv('CRYPTO_TICKERS', 'bitcoin,ethereum,solana')
     ids = ','.join(t.strip() for t in tickers.split(',') if t.strip())
     url = (
         "https://api.coingecko.com/api/v3/coins/markets"
